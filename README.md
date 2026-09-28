@@ -51,3 +51,22 @@ A short quiz on regression and classification (Predictive Analytics, Lectures 3-
 - Both beat the original ExamCraft rule by about 18 points.
 
 Full traces are in `results/runs_*.jsonl`.
+
+## Free-text reasons (after a wrong answer, the student writes why)
+
+The model reads the reason (misconception / gap / slip / guess / unclear). Tested on held-out seeds, with 30% of simulated students' confidence ratings random (real students are miscalibrated).
+
+| Setup (same students and seeds, runs 100-109) | Exactly right | False misconception flags / session | False weak flags / session |
+|---|---|---|---|
+| Rules decide, model reads reasons | **60%** | 0.00 | 0.14 |
+| Rules decide, no reasons | 58% | 0.03 | 0.15 |
+| Model decides **and** reads reasons (agent: gpt-5-mini) | 51% | 0.00 | 0.09 |
+
+- Over all 160 held-out sessions (runs 100-119), reasons improved the rules from 53% to 59% (+6.2 points, 95% CI [0, +13]).
+- The reason reader (gpt-5.4-nano) recovered the true cause 94-96% of the time.
+- Agent vs rules, both reading reasons: -8.7 points, 95% CI [-21, +4]. The model deciding does not help. Note: the agent here ran on gpt-5-mini (cheaper than the gpt-5.4-mini used earlier), so model strength is a possible confound.
+- Perfect-reader ceiling (no LLM, `--oracle`): +2.5 points with honest confidence, +5.4 at 30% noise, +9.6 at 50%. **Reasons only help when stated confidence is unreliable.**
+
+**Conclusion: the model earns its place reading what the student meant, not choosing the next question.**
+
+Total API cost of all reason experiments: about $3.30.
