@@ -19,6 +19,7 @@ class TraceStep:
     chosen_index: Optional[int] = None
     confidence: Optional[str] = None
     correct: Optional[bool] = None
+    reading: object = None  # ReasonReading, when the student explained a wrong answer
     notes: List[str] = field(default_factory=list)
 
 
@@ -31,8 +32,17 @@ class Session:
         min_questions: int = 5,
         seed: Optional[int] = None,
         bank: Optional[Sequence[Question]] = None,
+        reasons: bool = False,
+        reader=None,
     ):
+        """reasons=True asks for a one-line explanation after each wrong answer
+        and has an LLM (reader, a ReasonReader) interpret it."""
         self.policy = policy
+        self.reasons = reasons
+        if reasons and reader is None:
+            from .reasons import ReasonReader
+            reader = ReasonReader()
+        self.reader = reader
         self.beliefs = BeliefState(concepts=tuple(concepts or CONCEPTS.keys()))
         self.ctx = Context(
             beliefs=self.beliefs,
@@ -43,6 +53,7 @@ class Session:
             rng=random.Random(seed),
         )
         self.trace: List[TraceStep] = []
+        self.pending = None  # (index, confidence) waiting for a reason, used by the app
         self.finished = False
         self.stop_reason = ""
 
@@ -89,14 +100,23 @@ class Session:
         self.ctx.asked_ids.add(q.id)
         return step
 
-    def submit(self, chosen_index: int, confidence: str) -> TraceStep:
+    def wants_reason(self, chosen_index: int) -> bool:
+        """True if this answer is wrong and the session asks for reasons."""
+        step = self.current
+        return bool(self.reasons and step and not step.question.options[chosen_index].correct)
+
+    def submit(self, chosen_index: int, confidence: str, reason: Optional[str] = None) -> TraceStep:
         step = self.current
         if step is None:
             raise RuntimeError("No question is waiting for an answer.")
+        reading = None
+        if reason and reason.strip() and self.wants_reason(chosen_index):
+            reading = self.reader.read(step.question, chosen_index, reason.strip())
         step.chosen_index = chosen_index
         step.confidence = confidence
         step.correct = step.question.options[chosen_index].correct
-        step.notes = self.beliefs.update(step.question, chosen_index, confidence)
+        step.reading = reading
+        step.notes = self.beliefs.update(step.question, chosen_index, confidence, reading)
         return step
 
     def diagnosis(self) -> Diagnosis:

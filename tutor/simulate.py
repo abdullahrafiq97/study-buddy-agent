@@ -27,6 +27,7 @@ from .session import Session
 
 KNOWS_CORRECT = {1: 0.95, 2: 0.88, 3: 0.75}  # P(correct | knows the concept), by level
 FALLS_FOR_HELD = 0.85                          # P(picks the option for a misconception they hold)
+CONFIDENCE_NOISE = 0.0  # P(the reported confidence is random); real students are often miscalibrated
 
 
 @dataclass
@@ -45,17 +46,26 @@ class SimStudent:
             k *= min(1.0, 0.3 + self.m(p))  # a weak prerequisite drags this concept down
         return k
 
-    def answer(self, q: Question, rng: random.Random) -> Tuple[int, str]:
+    def answer(self, q: Question, rng: random.Random) -> Tuple[int, str, str]:
+        """Returns (option index, confidence, true cause). The cause is hidden from
+        the system; it is used to write a realistic reason and to score the reader."""
+        idx, conf, cause = self._answer(q, rng)
+        if rng.random() < CONFIDENCE_NOISE:
+            conf = rng.choice(["sure", "unsure", "guess"])
+        return idx, conf, cause
+
+    def _answer(self, q: Question, rng: random.Random) -> Tuple[int, str, str]:
         held = [i for i, o in enumerate(q.options) if o.misconception in self.misconceptions]
         if held and rng.random() < FALLS_FOR_HELD:
-            return rng.choice(held), ("sure" if rng.random() < 0.7 else "unsure")
+            i = rng.choice(held)
+            return i, ("sure" if rng.random() < 0.7 else "unsure"), f"misconception:{q.options[i].misconception}"
         wrong = [i for i, o in enumerate(q.options) if not o.correct]
         if rng.random() < self.effective_mastery(q.concept):
             if rng.random() < KNOWS_CORRECT[q.level]:
                 conf = "sure" if q.level < 3 or rng.random() < 0.6 else "unsure"
-                return q.correct_index, conf
-            return rng.choice(wrong), "unsure"  # a slip
-        return rng.randrange(4), ("guess" if rng.random() < 0.7 else "unsure")
+                return q.correct_index, conf, "knows"
+            return rng.choice(wrong), "unsure", "slip"
+        return rng.randrange(4), ("guess" if rng.random() < 0.7 else "unsure"), "guess"
 
     def truth(self, concepts) -> dict:
         weak = {c for c in concepts if self.m(c) < 0.5}
@@ -83,23 +93,98 @@ PERSONAS: List[SimStudent] = [
 PERSONA_BY_NAME = {p.name: p for p in PERSONAS}
 
 
+UNHELPFUL_REASONS = ["idk", "seemed right", "not sure tbh", "it just looked correct", "?"]
+UNHELPFUL_RATE = 0.2  # real students often give reasons that say nothing
+
+STUDENT_PROMPT = """You are role-playing a university student taking a quiz on regression and classification.
+You just picked a WRONG answer. Write the one short line (5-25 words) you would type when asked
+"why did you pick that?". Write casually, in first person, like a real student. Never use the
+phrase 'misconception', never quote the option text word for word, and don't say it's wrong
+(you don't know yet). The hidden truth about why you picked it:
+{cause}"""
+
+
+def _cause_text(cause: str) -> str:
+    if cause.startswith("misconception:"):
+        m = MISCONCEPTIONS[cause.split(":", 1)[1]]
+        return ("You hold the following belief and think it is correct. Explain your pick from inside that belief, "
+                f"in your own words (a teacher describes your belief as: {m.description})")
+    if cause == "slip":
+        return "You actually know this topic, but you read the question too fast or mixed up two options by accident."
+    return "You don't really understand this topic and picked mostly at random, maybe with a vague half-reason."
+
+
+def student_reason(q: Question, idx: int, cause: str, rng: random.Random) -> str:
+    """A simulated student's one-line explanation, written by an LLM in the student's voice."""
+    if rng.random() < UNHELPFUL_RATE:
+        return rng.choice(UNHELPFUL_REASONS)
+    from openai import OpenAI
+    from . import config
+    client = OpenAI(api_key=config.OPENAI_API_KEY, max_retries=8)
+    opts = "\n".join(f"{'ABCD'[i]}. {o.text}" for i, o in enumerate(q.options))
+    resp = client.chat.completions.create(
+        model=config.STUDENT_MODEL,
+        messages=[{"role": "system", "content": STUDENT_PROMPT.format(cause=_cause_text(cause))},
+                  {"role": "user", "content": f"{q.stem}\n\n{opts}\n\nYou picked {'ABCD'[idx]}. Your one line:"}],
+        **({"reasoning_effort": "low"} if config.STUDENT_MODEL.startswith("gpt-5") else {}),
+    )
+    return (resp.choices[0].message.content or "idk").strip().strip('"')
+
+
+class OracleReader:
+    """A perfect reason reader for the free ceiling test: it is handed the true cause
+    (as the 'reason' text) and returns the ideal reading. No LLM calls."""
+
+    def read(self, q, chosen_index, reason):
+        from .reasons import ReasonReading
+        if reason in UNHELPFUL_REASONS:
+            return ReasonReading("unclear", None, "weak", "", "unhelpful reason", reason)
+        if reason.startswith("misconception:"):
+            return ReasonReading("misconception", reason.split(":", 1)[1], "strong", "", "oracle", reason)
+        return ReasonReading(reason, None, "strong", "", "oracle", reason)  # "slip" or "guess"
+
+
+def reading_matches(cause: str, reading) -> bool:
+    """Did the reader recover the true cause?"""
+    if cause.startswith("misconception:"):
+        return reading.kind == "misconception" and reading.misconception_id == cause.split(":", 1)[1]
+    if cause == "slip":
+        return reading.kind == "slip"
+    return reading.kind in ("guess", "gap")
+
+
 def make_policy(name: str):
+    name = name.replace("+reasons", "")
     if name == "agent":
         from .agent import AgentPolicy
         return AgentPolicy()
     return {"rule": RuleBasedPolicy, "random": RandomPolicy, "heuristic": HeuristicPolicy}[name]()
 
 
-def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank) -> dict:
+def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
+            oracle: bool = False) -> dict:
+    reasons = policy_name.endswith("+reasons")
     session = Session(make_policy(policy_name), max_questions=max_q, min_questions=min_q,
-                      seed=1000 + run, bank=bank)
+                      seed=1000 + run, bank=bank, reasons=reasons,
+                      reader=OracleReader() if oracle and reasons else None)
     rng = random.Random(f"{student.name}-{run}")
+    reason_rng = random.Random(f"{student.name}-{run}-reasons")
+    readings = []  # (true cause, reading) for scoring the reader
     while True:
         step = session.next_question()
         if step is None:
             break
-        idx, conf = student.answer(step.question, rng)
-        session.submit(idx, conf)
+        idx, conf, cause = student.answer(step.question, rng)
+        reason = None
+        if session.wants_reason(idx):
+            if oracle:
+                reason = (reason_rng.choice(UNHELPFUL_REASONS) if reason_rng.random() < UNHELPFUL_RATE
+                          else cause)
+            else:
+                reason = student_reason(step.question, idx, cause, reason_rng)
+        session.submit(idx, conf, reason)
+        if step.reading is not None:
+            readings.append((cause, step.reading))
 
     diag = session.diagnosis()
     truth = student.truth(session.beliefs.concepts)
@@ -123,6 +208,8 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
         "flagged_misconceptions": sorted(flagged_mis),
         "suspected": sorted(diag.suspected),
         "stop_reason": session.stop_reason,
+        "readings": [{"cause": c, "kind": r.kind, "misconception": r.misconception_id, "text": r.text,
+                      "match": reading_matches(c, r)} for c, r in readings],
         "trace": [trace_to_dict(s) for s in session.trace],
     }
     result["exact"] = all(result[k] == 0 for k in ("mis_fp", "mis_fn", "weak_fp", "weak_fn"))
@@ -141,6 +228,8 @@ def trace_to_dict(s) -> dict:
         "correct": s.correct, "confidence": s.confidence,
         "picked_misconception": (s.question.options[s.chosen_index].misconception
                                  if s.question and s.chosen_index is not None else None),
+        "reason": s.reading.text if s.reading else None,
+        "reading": s.reading.kind if s.reading else None,
         "notes": s.notes,
     }
 
@@ -174,7 +263,16 @@ def summarize(results: List[dict]) -> str:
             cells.append(rate(sum(r["exact"] for r in rs), len(rs)))
         if any(c != "n/a" for c in cells):
             lines.append(f"| {p.name} | " + " | ".join(cells) + " |")
-    agent_rs = [r for r in results if r["policy"] == "agent"]
+    reads = [x for r in results for x in r.get("readings", []) if x["text"] not in UNHELPFUL_REASONS]
+    if reads:
+        by_cause = {}
+        for x in reads:
+            k = "misconception" if x["cause"].startswith("misconception:") else x["cause"]
+            by_cause.setdefault(k, []).append(x["match"])
+        lines += ["", f"Reason reader recovered the true cause in {rate(sum(x['match'] for x in reads), len(reads))} "
+                      f"of {len(reads)} informative reasons: "
+                      + ", ".join(f"{k} {rate(sum(v), len(v))} (n={len(v)})" for k, v in by_cause.items())]
+    agent_rs = [r for r in results if r["policy"].startswith("agent")]
     if agent_rs:
         lines += ["", f"Agent guardrail rejections: {sum(r['rejections'] for r in agent_rs)}, "
                       f"fallbacks to rule policy: {sum(r['fallbacks'] for r in agent_rs)}, "
@@ -197,6 +295,8 @@ def print_trace(result: dict):
         if t["question"]:
             res = "CORRECT" if t["correct"] else f"WRONG (picked: {t['picked_misconception'] or 'untagged'})"
             print(f"   asked {t['question']} → {res}, {t['confidence']}")
+            if t.get("reason"):
+                print(f'   reason: "{t["reason"]}" → read as {t["reading"]}')
             for n in t["notes"]:
                 print(f"     · {n}")
     print(f"Stop: {result['stop_reason']}")
@@ -206,26 +306,32 @@ def print_trace(result: dict):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--policies", nargs="+", default=["heuristic", "rule", "random"], choices=["agent", "heuristic", "rule", "random"])
+    ap.add_argument("--policies", nargs="+", default=["heuristic", "rule", "random"], choices=["agent", "agent+reasons", "heuristic", "heuristic+reasons", "rule", "random"])
     ap.add_argument("--runs", type=int, default=10)
     ap.add_argument("--max-q", type=int, default=10)
     ap.add_argument("--min-q", type=int, default=5)
     ap.add_argument("--students", nargs="+", default=[p.name for p in PERSONAS], choices=list(PERSONA_BY_NAME))
     ap.add_argument("--show", help="Print the full trace of run 0 for this student")
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--confidence-noise", type=float, default=0.0,
+                    help="Probability a simulated student's reported confidence is random (miscalibration)")
+    ap.add_argument("--oracle", action="store_true",
+                    help="Use a perfect reason reader (no LLM) to measure the ceiling of the reasons step")
     ap.add_argument("--out", default="results")
     args = ap.parse_args()
 
+    global CONFIDENCE_NOISE
+    CONFIDENCE_NOISE = args.confidence_noise
     bank = load_bank()
     if args.show:
         for pol in args.policies:
-            print_trace(run_one(pol, PERSONA_BY_NAME[args.show], 0, args.max_q, args.min_q, bank))
+            print_trace(run_one(pol, PERSONA_BY_NAME[args.show], 0, args.max_q, args.min_q, bank, args.oracle))
         return
 
     jobs = [(pol, PERSONA_BY_NAME[s], run) for pol in args.policies for s in args.students for run in range(args.runs)]
     def safe_run(job):
         try:
-            return run_one(job[0], job[1], job[2], args.max_q, args.min_q, bank)
+            return run_one(job[0], job[1], job[2], args.max_q, args.min_q, bank, args.oracle)
         except Exception as e:  # one failed LLM session should not sink the whole evaluation
             print(f"FAILED {job[0]} vs {job[1].name} run {job[2]}: {e}")
             return None
@@ -237,7 +343,8 @@ def main():
 
     out = Path(args.out)
     out.mkdir(exist_ok=True)
-    tag = "-".join(args.policies)
+    tag = "-".join(args.policies) + ("-oracle" if args.oracle else "") + (
+        f"-noise{args.confidence_noise:g}" if args.confidence_noise else "")
     with open(out / f"runs_{tag}.jsonl", "w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")

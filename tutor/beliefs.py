@@ -31,6 +31,10 @@ HIT_CONF = {"sure": 1.0, "unsure": 0.7, "guess": 0.3}
 AVOID_CORRECT_CONF = {"sure": 1.0, "unsure": 0.6, "guess": 0.2}
 AVOID_WRONG_OTHER = 0.3  # wrong, but picked a different option than M's
 
+# Weights from the student's written reason (see reasons.py).
+READING_HIT = {"strong": 1.0, "weak": 0.6}
+SLIP_FACTOR = 0.3  # a wrong answer the reason shows was a slip counts 30% as much
+
 # Thresholds used for labels in the diagnosis.
 MIN_EVIDENCE = 2.0
 STRONG_AT = 0.65
@@ -47,8 +51,13 @@ class Answer:
     level: int
     correct: bool
     confidence: str
-    chosen_misconception: Optional[str]
+    chosen_misconception: Optional[str]      # tag on the option they picked
     offered: Tuple[str, ...]
+    attributed_misconception: Optional[str] = None  # what the evidence says caused it (tag or reason)
+    effective_confidence: str = ""                  # confidence after reading the reason
+    wrong_weight: float = 0.0                       # how much this wrong answer counts against mastery
+    reason: Optional[str] = None
+    reading_kind: Optional[str] = None
 
 
 @dataclass
@@ -117,8 +126,13 @@ class BeliefState:
 
     # ---------- updating ----------
 
-    def update(self, q: Question, chosen_index: int, confidence: str) -> List[str]:
-        """Apply one answer. Returns human-readable notes on what changed."""
+    def update(self, q: Question, chosen_index: int, confidence: str, reading=None) -> List[str]:
+        """Apply one answer. Returns human-readable notes on what changed.
+
+        reading: optional ReasonReading of the student's explanation of a wrong
+        answer. It can re-attribute the answer to a different misconception,
+        mark it a guess or gap (no misconception evidence), or a slip (counts less).
+        """
         if confidence not in CONFIDENCES:
             raise ValueError(f"confidence must be one of {CONFIDENCES}")
         chosen = q.options[chosen_index]
@@ -126,25 +140,46 @@ class BeliefState:
         cb = self.concept_beliefs[q.concept]
         before = cb.mean
 
+        attributed = None if correct else chosen.misconception
+        effective_conf = confidence
+        wrong_weight = 0.0 if correct else WRONG_WEIGHT[q.level]
+        hit_weight = HIT_CONF[confidence]
+        notes = []
+        if reading is not None and not correct:
+            if reading.kind == "misconception":
+                attributed = reading.misconception_id
+                hit_weight = READING_HIT[reading.strength]
+            elif reading.kind in ("guess", "gap", "slip"):
+                attributed = None
+                if reading.kind == "guess":
+                    effective_conf = "guess"
+                if reading.kind == "slip":
+                    wrong_weight *= SLIP_FACTOR
+            notes.append(f"Reason read as: {reading.kind}"
+                         + (f" ({reading.misconception_id}, {reading.strength})" if reading.misconception_id else ""))
+
         if correct:
             cb.alpha += CORRECT_WEIGHT[q.level] * CORRECT_CONF[confidence]
         else:
-            cb.beta += WRONG_WEIGHT[q.level]
+            cb.beta += wrong_weight
         cb.asked += 1
 
-        notes = [
+        notes.insert(0,
             f"{CONCEPTS[q.concept].name}: mastery {before:.2f} → {cb.mean:.2f} "
-            f"(±{cb.sd:.2f}; L{q.level} {'correct' if correct else 'wrong'}, {confidence})"
-        ]
+            f"(±{cb.sd:.2f}; L{q.level} {'correct' if correct else 'wrong'}, {effective_conf})"
+        )
 
-        for mid in q.tested_misconceptions:
+        touched = list(q.tested_misconceptions) + ([attributed] if attributed and attributed not in q.tested_misconceptions else [])
+        for mid in touched:
             mb = self.misconception_beliefs[mid]
             old_status = mb.status
             mb.exposures += 1
-            if chosen.misconception == mid:
-                mb.hits += HIT_CONF[confidence]
+            if mid == attributed:
+                mb.hits += hit_weight
             elif correct:
                 mb.avoided += AVOID_CORRECT_CONF[confidence]
+            elif mid == chosen.misconception:
+                pass  # picked its option, but the reason says it wasn't that belief: no evidence either way
             else:
                 mb.avoided += AVOID_WRONG_OTHER
             if mb.status != old_status:
@@ -160,6 +195,11 @@ class BeliefState:
                 confidence=confidence,
                 chosen_misconception=chosen.misconception,
                 offered=q.tested_misconceptions,
+                attributed_misconception=attributed,
+                effective_confidence=effective_conf,
+                wrong_weight=wrong_weight,
+                reason=reading.text if reading is not None else None,
+                reading_kind=reading.kind if reading is not None else None,
             )
         )
         return notes
@@ -185,9 +225,9 @@ class BeliefState:
             gb.asked += 1
             if a.correct:
                 gb.alpha += CORRECT_WEIGHT[a.level] * CORRECT_CONF[a.confidence]
-            elif not (a.chosen_misconception
-                      and self.misconception_beliefs[a.chosen_misconception].status == "confirmed"):
-                gb.beta += WRONG_WEIGHT[a.level]
+            elif not (a.attributed_misconception
+                      and self.misconception_beliefs[a.attributed_misconception].status == "confirmed"):
+                gb.beta += a.wrong_weight
         return gb
 
     def concept_label(self, concept_id: str) -> str:

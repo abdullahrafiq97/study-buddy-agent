@@ -10,3 +10,5 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-5.4-mini")
 # Reasoning effort for GPT-5-family models ("minimal", "low", "medium", "high").
 AGENT_REASONING = os.getenv("AGENT_REASONING", "low")
+# Model that writes simulated students' reasons (evaluation only).
+STUDENT_MODEL = os.getenv("STUDENT_MODEL", "gpt-5.4-mini")

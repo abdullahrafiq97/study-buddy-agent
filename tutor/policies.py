@@ -230,9 +230,10 @@ class HeuristicPolicy:
         candidates: List[Decision] = []
 
         if last and not last.correct:
-            if last.chosen_misconception and last.confidence != "guess":
-                candidates.append(Decision("probe_misconception", last.concept, last.level, last.chosen_misconception,
-                                           rationale=f"#{last.number} picked '{last.chosen_misconception}'; probe it again."))
+            m = last.attributed_misconception
+            if m and last.effective_confidence != "guess" and MISCONCEPTIONS[m].concept in _allowed_concepts(ctx):
+                candidates.append(Decision("probe_misconception", MISCONCEPTIONS[m].concept, last.level, m,
+                                           rationale=f"#{last.number} points to '{m}'; probe it again."))
             if last.level > 1:
                 candidates.append(Decision("step_down", last.concept, last.level - 1,
                                            rationale=f"#{last.number} was wrong at L{last.level}; check the easier level."))

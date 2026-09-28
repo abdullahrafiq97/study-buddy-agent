@@ -67,6 +67,10 @@ How to read evidence:
 - Correct but guess/unsure: weak evidence of mastery; consider stepping up or re-checking.
 - Correct and sure at L2/L3: good sign, but one answer is not mastery (the label stays 'uncertain' until there
   is enough evidence). A correct answer only rules out the misconceptions that question offered.
+- Student's reason (when given): after a wrong answer the student explains their choice in their own words,
+  and the history shows it with a reading. The reading already updated the numbers, but read the words
+  yourself too: a reason can reveal a misconception the picked option was not tagged with, show a gap
+  ("never understood lasso"), or show a slip ("misread the question"). A slip is not evidence of weakness.
 - A confirmed misconception explains the wrong answers it caused, but not others. Concept labels use only
   the wrong answers a confirmed misconception does not explain, so a concept can be both 'weak' and have
   a misconception. After confirming one, check whether the student also has a gap in that concept.
@@ -85,11 +89,11 @@ Always cite answer numbers (e.g., "#3") when explaining."""
 
 
 def gap_signals(b, concept_id: str) -> int:
-    """Wrong answers on a concept that no confident misconception pick explains."""
+    """Wrong answers on a concept that no confident misconception explains (slips excluded)."""
     return sum(
         1 for a in b.answers
-        if a.concept == concept_id and not a.correct
-        and not (a.chosen_misconception and a.confidence != "guess")
+        if a.concept == concept_id and not a.correct and a.reading_kind != "slip"
+        and not (a.attributed_misconception and a.effective_confidence != "guess")
     )
 
 
@@ -132,10 +136,14 @@ def render_state(ctx: Context) -> str:
             else "wrong option with no misconception tag"
         )
         offered = ", ".join(a.offered) or "none"
-        lines.append(
+        line = (
             f"- #{a.number} {a.concept} L{a.level}: {'CORRECT' if a.correct else 'WRONG'} "
             f"({picked}), confidence={a.confidence}. Misconceptions offered: {offered}"
         )
+        if a.reason is not None:
+            line += (f"\n    Student's reason: \"{a.reason}\" → read as {a.reading_kind}"
+                     + (f" ({a.attributed_misconception})" if a.reading_kind == "misconception" else ""))
+        lines.append(line)
     return "\n".join(lines)
 
 

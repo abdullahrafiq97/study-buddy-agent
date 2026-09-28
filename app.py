@@ -32,6 +32,13 @@ def _error(msg: str):
     return f"⚠️ {msg}\n\nIf the LLM is unavailable (e.g. no API credits), pick the **Heuristic** decision-maker to keep going."
 
 
+def _reason_controls(show: bool, prompt: str = ""):
+    # Toggled one by one: in Gradio 6.0.1 a hidden Column can't be hidden again after showing,
+    # and a Textbox that starts hidden never appears. These all start visible and are hidden on load.
+    return (gr.update(visible=show, value=prompt), gr.update(visible=show, value=""),
+            gr.update(visible=show), gr.update(visible=show))
+
+
 def _show_question(session, step):
     return (
         session,
@@ -45,6 +52,7 @@ def _show_question(session, step):
         beliefs_html(session.beliefs),
         trace_md(session),
         "",
+        *_reason_controls(False),
     )
 
 
@@ -62,14 +70,15 @@ def _show_end(session, feedback=""):
         beliefs_html(session.beliefs),
         trace_md(session),
         diagnosis_md(session),
+        *_reason_controls(False),
     )
 
 
-def start(concepts, max_q, policy_label):
+def start(concepts, max_q, policy_label, ask_reasons):
     if not concepts:
         raise gr.Error("Pick at least one concept.")
     session = Session(POLICIES[policy_label](), concepts=concepts, max_questions=int(max_q),
-                      min_questions=min(6, int(max_q)), bank=BANK)
+                      min_questions=min(6, int(max_q)), bank=BANK, reasons=bool(ask_reasons))
     try:
         step = session.next_question()
     except AgentError as e:
@@ -77,12 +86,12 @@ def start(concepts, max_q, policy_label):
     return _show_question(session, step) if step else _show_end(session)
 
 
-def submit(session, answer, confidence):
-    if session is None or session.current is None:
-        raise gr.Error("Start a session first.")
-    if not answer or not confidence:
-        raise gr.Error("Pick an answer and how confident you are.")
-    step = session.submit("ABCD".index(answer[0]), CONFIDENCE[confidence])
+def _finalize(session, idx, conf, reason):
+    try:
+        step = session.submit(idx, conf, reason)
+    except AgentError as e:
+        raise gr.Error(_error(str(e)), duration=None)
+    session.pending = None
     return (
         session,
         gr.update(interactive=False),
@@ -92,7 +101,45 @@ def submit(session, answer, confidence):
         feedback_md(step),
         beliefs_html(session.beliefs),
         trace_md(session),
+        *_reason_controls(False),
     )
+
+
+def submit(session, answer, confidence):
+    if session is None or session.current is None:
+        raise gr.Error("Start a session first.")
+    if not answer or not confidence:
+        raise gr.Error("Pick an answer and how confident you are.")
+    idx, conf = "ABCD".index(answer[0]), CONFIDENCE[confidence]
+    if session.wants_reason(idx):
+        # Ask before revealing the answer, so the reason isn't rewritten in hindsight.
+        session.pending = (idx, conf)
+        return (
+            session,
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+            "",
+            gr.update(),
+            gr.update(),
+            *_reason_controls(True, f"**Before I show the answer: why did you pick {answer[0]}?** One line is enough."),
+        )
+    return _finalize(session, idx, conf, None)
+
+
+def submit_reason(session, reason):
+    if session is None or not getattr(session, "pending", None):
+        raise gr.Error("Answer a question first.")
+    if not reason or not reason.strip():
+        raise gr.Error("Write a short reason, or press Skip.")
+    return _finalize(session, *session.pending, reason)
+
+
+def skip_reason(session):
+    if session is None or not getattr(session, "pending", None):
+        raise gr.Error("Answer a question first.")
+    return _finalize(session, *session.pending, None)
 
 
 def next_q(session):
@@ -133,6 +180,8 @@ def simulate(persona_name, policy_label, max_q):
         if t["question"]:
             res = "correct" if t["correct"] else "wrong" + (f", picked `{t['picked_misconception']}`" if t["picked_misconception"] else "")
             lines.append(f"- student: {res} ({t['confidence']})")
+            if t.get("reason"):
+                lines.append(f'- reason: "{t["reason"]}" → read as {t["reading"]}')
         lines.append("")
     return "\n".join(lines)
 
@@ -156,6 +205,8 @@ with gr.Blocks(title="Study Buddy: diagnostic quiz agent") as demo:
             with gr.Row():
                 max_q_in = gr.Slider(6, 18, value=12, step=1, label="Maximum questions")
                 policy_in = gr.Radio(list(POLICIES), value="Agent (LLM decides)", label="Who decides the next question")
+                reasons_in = gr.Checkbox(value=True, label="Ask me why after a wrong answer",
+                                         info="An LLM reads your one-line reason to tell a misconception from a gap, slip or guess.")
             start_btn = gr.Button("Start session", variant="primary")
 
         with gr.Row():
@@ -166,6 +217,12 @@ with gr.Blocks(title="Study Buddy: diagnostic quiz agent") as demo:
                 with gr.Row():
                     submit_btn = gr.Button("Submit answer", variant="primary", interactive=False)
                     next_btn = gr.Button("Next question", interactive=False)
+                reason_prompt = gr.Markdown()
+                reason_in = gr.Textbox(show_label=False, lines=1, max_lines=2,
+                                       placeholder="e.g. I thought a bigger λ means the model stays closer to OLS")
+                with gr.Row():
+                    reason_btn = gr.Button("Submit reason", variant="primary")
+                    skip_btn = gr.Button("Skip")
                 feedback_out = gr.Markdown()
             with gr.Column(scale=2):
                 decision_out = gr.HTML(decision_html(None))
@@ -175,13 +232,17 @@ with gr.Blocks(title="Study Buddy: diagnostic quiz agent") as demo:
             trace_out = gr.Markdown()
 
         show_outputs = [session_state, question_out, answer_in, confidence_in, submit_btn, next_btn,
-                        feedback_out, decision_out, beliefs_out, trace_out, diagnosis_out]
-        start_btn.click(start, [concepts_in, max_q_in, policy_in], show_outputs)
+                        feedback_out, decision_out, beliefs_out, trace_out, diagnosis_out,
+                        reason_prompt, reason_in, reason_btn, skip_btn]
+        start_btn.click(start, [concepts_in, max_q_in, policy_in, reasons_in], show_outputs)
         next_btn.click(next_q, [session_state], show_outputs)
-        submit_btn.click(
-            submit, [session_state, answer_in, confidence_in],
-            [session_state, answer_in, confidence_in, submit_btn, next_btn, feedback_out, beliefs_out, trace_out],
-        )
+        answer_outputs = [session_state, answer_in, confidence_in, submit_btn, next_btn, feedback_out,
+                          beliefs_out, trace_out, reason_prompt, reason_in, reason_btn, skip_btn]
+        submit_btn.click(submit, [session_state, answer_in, confidence_in], answer_outputs)
+        reason_btn.click(submit_reason, [session_state, reason_in], answer_outputs)
+        reason_in.submit(submit_reason, [session_state, reason_in], answer_outputs)
+        skip_btn.click(skip_reason, [session_state], answer_outputs)
+        demo.load(lambda: _reason_controls(False), None, [reason_prompt, reason_in, reason_btn, skip_btn])
 
     with gr.Tab("Watch a simulated student"):
         gr.Markdown(

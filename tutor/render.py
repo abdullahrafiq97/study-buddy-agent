@@ -138,6 +138,14 @@ def feedback_md(step: TraceStep) -> str:
         head = f"❌ **Not quite.** You picked {LETTERS[step.chosen_index]}; the answer is {right}."
         if chosen.misconception:
             head += f"\n\nThat option is what you'd pick if you believe: _{MISCONCEPTIONS[chosen.misconception].description}_"
+    if step.reading is not None:
+        r = step.reading
+        read = {"misconception": f"a specific belief: _{MISCONCEPTIONS[r.misconception_id].description}_"
+                                 if r.misconception_id else "a specific belief",
+                "gap": "a gap in what you know about this topic",
+                "slip": "a slip: you likely knew it but misread or rushed",
+                "guess": "a guess", "unclear": "not enough to tell"}[r.kind]
+        head += f"\n\n**How I read your reason** (\"{r.text}\"): {read}. {r.explanation}"
     notes = "\n".join(f"- {n}" for n in step.notes)
     return f"{head}\n\n**Explanation:** {q.explanation}\n\n**Belief update:**\n{notes}"
 
@@ -160,6 +168,8 @@ def trace_md(session: Session) -> str:
             res = "correct" if s.correct else "wrong"
             m = s.question.options[s.chosen_index].misconception
             out.append(f"- asked `{s.question.id}` → {res}, {s.confidence}" + (f", picked `{m}`" if m else ""))
+            if s.reading is not None:
+                out.append(f'  - reason: "{s.reading.text}" → {s.reading.kind}')
             out += [f"  - {n}" for n in s.notes]
         out.append("")
     return "\n".join(out)
@@ -180,7 +190,7 @@ def diagnosis_md(session: Session) -> str:
         out.append(f"| {CONCEPTS[cid].name} | {diag.labels[cid]} | {cb.mean:.2f} ± {cb.sd:.2f} | {cb.asked} |")
 
     def evidence(mid):
-        nums = [f"#{a.number}" for a in b.answers if a.chosen_misconception == mid]
+        nums = [f"#{a.number}" for a in b.answers if a.attributed_misconception == mid]
         return ", ".join(nums)
 
     if diag.confirmed:
