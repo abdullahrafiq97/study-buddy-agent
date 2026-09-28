@@ -1,0 +1,21 @@
+| Policy | Misconceptions found (recall) | False misconception flags / session | Weak concepts found (recall) | False weak flags / session | Exactly right diagnosis | Avg questions |
+|---|---|---|---|---|---|---|
+| agent | 68% | 0.00 | 57% | 0.06 | 62% | 12.0 |
+| heuristic | 80% | 0.00 | 63% | 0.11 | 64% | 12.0 |
+| rule | 48% | 0.00 | 73% | 0.30 | 45% | 12.0 |
+| random | 20% | 0.00 | 27% | 0.17 | 28% | 12.0 |
+
+Exactly-right diagnosis rate by student:
+
+| Student | agent | heuristic | rule | random |
+|---|---|---|---|---|
+| strong_all_round | 100% | 80% | 80% | 80% |
+| swaps_sens_spec | 70% | 70% | 60% | 30% |
+| prob_not_logodds | 80% | 60% | 50% | 30% |
+| trusts_training_error | 70% | 80% | 50% | 20% |
+| shrinkage_gap | 70% | 80% | 40% | 20% |
+| weak_foundations | 90% | 70% | 70% | 20% |
+| two_misconceptions | 10% | 50% | 0% | 0% |
+| classification_struggler | 10% | 20% | 10% | 20% |
+
+Agent guardrail rejections: 21, fallbacks to rule policy: 0, stopped early: 0/80 sessions

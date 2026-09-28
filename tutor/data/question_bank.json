@@ -1,0 +1,655 @@
+[
+  {
+    "id": "ols-nl-1", "concept": "ols_basics", "level": 1, "target": "nonlinear_x_means_nonlinear_model",
+    "source": "Lecture 3, slide 11",
+    "stem": "In regression, the word 'linear' in 'linear model' refers to linearity in...",
+    "options": [
+      {"text": "the parameters (the β coefficients)", "correct": true},
+      {"text": "the predictors: every X must enter as a plain straight-line term", "misconception": "nonlinear_x_means_nonlinear_model"},
+      {"text": "the response variable Y, which must be normally distributed"},
+      {"text": "the residuals, which must lie on a straight line"}
+    ],
+    "explanation": "A model is linear if it is linear in the β's. X², log(X), etc. are fine: they are just new predictors."
+  },
+  {
+    "id": "ols-nl-2", "concept": "ols_basics", "level": 2, "target": "nonlinear_x_means_nonlinear_model",
+    "source": "Lecture 3, slide 11",
+    "stem": "Which of these models is NOT linear in the sense needed for OLS?",
+    "options": [
+      {"text": "Sales = β0 · exp(β1 · TV) + ε", "correct": true},
+      {"text": "Sales = β0 + β1·TV + β2·TV² + ε", "misconception": "nonlinear_x_means_nonlinear_model"},
+      {"text": "log(Sales) = β0 + β1·log(TV) + ε", "misconception": "nonlinear_x_means_nonlinear_model"},
+      {"text": "Sales = β0 + β1·TV + ε"}
+    ],
+    "explanation": "β0·exp(β1·TV) is non-linear in the parameters. The quadratic and log-log models are still linear in β."
+  },
+  {
+    "id": "ols-nl-3", "concept": "ols_basics", "level": 3, "target": "nonlinear_x_means_nonlinear_model",
+    "source": "Lecture 4, slide 31",
+    "stem": "You fit mpg = β0 + β1·hp + β2·hp² + ε. A colleague says: 'You can't use OLS, that's a nonlinear model.' What is the best response?",
+    "options": [
+      {"text": "OLS still applies: the model is linear in β with hp² as just another predictor, even though the fitted curve bends in hp", "correct": true},
+      {"text": "The colleague is right: a squared term requires nonlinear least squares instead of OLS", "misconception": "nonlinear_x_means_nonlinear_model"},
+      {"text": "OLS applies only if hp and hp² are uncorrelated"},
+      {"text": "OLS applies, but t-tests on the coefficients are no longer valid"}
+    ],
+    "explanation": "Polynomial regression is still a linear combination of predictors, so it is a linear model and OLS works as usual."
+  },
+  {
+    "id": "ols-pv-1", "concept": "ols_basics", "level": 1, "target": "pvalue_as_effect_size",
+    "source": "Lecture 3, slides 25-26",
+    "stem": "Testing H0: β1 = 0 vs Ha: β1 ≠ 0, you reject H0 at the 5% level. This tells you...",
+    "options": [
+      {"text": "there is statistically significant evidence that β1 is not zero", "correct": true},
+      {"text": "the effect of X on Y is large enough to matter in practice", "misconception": "pvalue_as_effect_size"},
+      {"text": "X causes Y"},
+      {"text": "the model's R² is above 0.05"}
+    ],
+    "explanation": "Rejecting H0 means the estimate is far enough from zero (relative to its SE) that zero is implausible. It says nothing about size or causation."
+  },
+  {
+    "id": "ols-pv-2", "concept": "ols_basics", "level": 2, "target": "pvalue_as_effect_size",
+    "source": "Lecture 3, slides 24-26",
+    "stem": "Two predictors of weekly sales: TV budget has β̂ = 0.047 (p < 0.0001); store size has β̂ = 3.5 (p = 0.20). Which statement is supported?",
+    "options": [
+      {"text": "There is strong evidence TV has a non-zero effect; the store-size estimate is too imprecise to rule out zero", "correct": true},
+      {"text": "TV has the larger effect on sales because its p-value is much smaller", "misconception": "pvalue_as_effect_size"},
+      {"text": "Store size is more strongly related to sales because its coefficient is larger", "misconception": "slope_means_strength"},
+      {"text": "Both are significant because both coefficients are positive"}
+    ],
+    "explanation": "p-values measure evidence against β = 0, not effect size. Coefficient size depends on units, so neither comparison says which effect is bigger."
+  },
+  {
+    "id": "ols-pv-3", "concept": "ols_basics", "level": 3, "target": "pvalue_as_effect_size",
+    "source": "Lecture 3, slides 25-26",
+    "stem": "With data on 1,000,000 customers, a coupon's coefficient is 0.002 extra units sold (p < 0.001). The manager says: 'Highly significant, so this is our most important lever.' What is the flaw?",
+    "options": [
+      {"text": "With a huge sample even a tiny effect is significant; 0.002 units may be practically negligible", "correct": true},
+      {"text": "There is no flaw: a p-value below 0.001 indicates a very large effect", "misconception": "pvalue_as_effect_size"},
+      {"text": "The p-value must be wrong, because large samples make p-values larger"},
+      {"text": "The coefficient should be compared to R² before calling it significant"}
+    ],
+    "explanation": "Significance tells you the effect is not zero. With n = 1,000,000 the standard error is tiny, so even a trivial effect is significant."
+  },
+  {
+    "id": "ols-sl-1", "concept": "ols_basics", "level": 1, "target": "slope_means_strength",
+    "source": "Lecture 3, slides 27-29",
+    "stem": "In simple linear regression, which quantity measures how strongly (how tightly) X and Y are linearly related?",
+    "options": [
+      {"text": "R², which equals r² when there is one predictor", "correct": true},
+      {"text": "The slope β̂1: a bigger slope means a stronger relationship", "misconception": "slope_means_strength"},
+      {"text": "The intercept β̂0"},
+      {"text": "The residual sum of squares, RSS"}
+    ],
+    "explanation": "R² is the share of variance in Y explained by X. The slope's size depends on the units of X and Y."
+  },
+  {
+    "id": "ols-sl-2", "concept": "ols_basics", "level": 2, "target": "slope_means_strength",
+    "source": "Lecture 3, slides 17, 27-29",
+    "stem": "Regressing Sales on TV budget in dollars gives β̂1 = 0.000047. Re-measuring TV budget in thousands of dollars gives β̂1 = 0.047. What happened to R²?",
+    "options": [
+      {"text": "Nothing: R² is unchanged, only the units of the slope changed", "correct": true},
+      {"text": "It rose: the relationship became 1000 times stronger", "misconception": "slope_means_strength"},
+      {"text": "It fell by a factor of 1000"},
+      {"text": "It cannot be known without re-running the t-test"}
+    ],
+    "explanation": "Rescaling X rescales the slope but leaves the fit (RSS, TSS, R²) identical."
+  },
+  {
+    "id": "ols-sl-3", "concept": "ols_basics", "level": 3, "target": "slope_means_strength",
+    "source": "Lecture 3, slides 27-29",
+    "stem": "Two simple regressions predict the same Y. Predictor A: β̂1 = 5.0, R² = 0.10. Predictor B: β̂1 = 0.5, R² = 0.85. Which predictor gives more accurate predictions of Y?",
+    "options": [
+      {"text": "B: it explains 85% of the variance in Y; slope size depends on units and says nothing about fit", "correct": true},
+      {"text": "A: its slope is 10 times larger, so it is more strongly related to Y", "misconception": "slope_means_strength"},
+      {"text": "They are equivalent because both slopes are positive"},
+      {"text": "You need the p-values, because the smaller p-value marks the stronger predictor", "misconception": "pvalue_as_effect_size"}
+    ],
+    "explanation": "Prediction accuracy is about how much variance is explained (R²), not how steep the line is."
+  },
+
+  {
+    "id": "mlr-hf-1", "concept": "multiple_regression", "level": 1, "target": "ignores_holding_fixed",
+    "source": "Lecture 3, slide 34",
+    "stem": "In Sales = β0 + β1·TV + β2·Radio + β3·Newspaper + ε, the coefficient β2 means...",
+    "options": [
+      {"text": "the change in Sales for a one-unit increase in Radio, holding TV and Newspaper fixed", "correct": true},
+      {"text": "the total change in Sales associated with Radio, including the TV and Newspaper spending that usually moves with it", "misconception": "ignores_holding_fixed"},
+      {"text": "the share of Sales explained by Radio"},
+      {"text": "the correlation between Radio and Sales"}
+    ],
+    "explanation": "Each coefficient in a multiple regression is the effect of that predictor with all other predictors held fixed."
+  },
+  {
+    "id": "mlr-hf-2", "concept": "multiple_regression", "level": 2, "target": "ignores_holding_fixed",
+    "source": "Lecture 3, slides 36-39",
+    "stem": "A simple regression of Sales on Newspaper gives β̂ = 0.055 (significant). In the multiple regression with TV and Radio, Newspaper's β̂ ≈ -0.001 (not significant). Most likely explanation?",
+    "options": [
+      {"text": "Newspaper spending is correlated with Radio; once Radio is held fixed, Newspaper adds no extra information", "correct": true},
+      {"text": "One of the regressions must be wrong: the same variable should get the same coefficient in both", "misconception": "ignores_holding_fixed"},
+      {"text": "Collinearity between Newspaper and Radio biased the multiple-regression estimate toward zero", "misconception": "collinearity_causes_bias"},
+      {"text": "Newspaper advertising has a negative effect on sales"}
+    ],
+    "explanation": "The simple regression picks up Radio's effect through Newspaper (they are correlated). Holding Radio fixed removes it."
+  },
+  {
+    "id": "mlr-hf-3", "concept": "multiple_regression", "level": 3, "target": "ignores_holding_fixed",
+    "source": "Lecture 3, slides 34, 43-45",
+    "stem": "A sales model includes price and a promotion dummy; promotions usually run together with price cuts. The manager asks: 'What happens if we run a promotion WITHOUT changing price?' Which estimate answers this?",
+    "options": [
+      {"text": "The promotion coefficient from the multiple regression that also includes price", "correct": true},
+      {"text": "The coefficient from a simple regression of sales on promotion alone, because it captures the full promotion effect", "misconception": "ignores_holding_fixed"},
+      {"text": "Neither: promotion and price are correlated, so the multiple-regression coefficients are biased and cannot answer it", "misconception": "collinearity_causes_bias"},
+      {"text": "The price coefficient, because promotions work through price"}
+    ],
+    "explanation": "'Promotion with price unchanged' is exactly 'holding price fixed', which is what the multiple-regression coefficient measures. The simple regression mixes in the price cuts."
+  },
+  {
+    "id": "mlr-co-1", "concept": "multiple_regression", "level": 1, "target": "collinearity_causes_bias",
+    "source": "Lecture 4, slides 49-55",
+    "stem": "What is the main consequence of collinearity (highly correlated predictors) in a regression?",
+    "options": [
+      {"text": "Larger standard errors: coefficient estimates become noisy and imprecise", "correct": true},
+      {"text": "Biased coefficient estimates that are systematically too high or too low", "misconception": "collinearity_causes_bias"},
+      {"text": "A sharp drop in R²"},
+      {"text": "Heteroscedastic residuals"}
+    ],
+    "explanation": "Collinearity inflates Var(β̂) (see VIF). Estimates stay unbiased but become noisy."
+  },
+  {
+    "id": "mlr-co-2", "concept": "multiple_regression", "level": 2, "target": "collinearity_causes_bias",
+    "source": "Lecture 4, slide 51",
+    "stem": "Balance is regressed on rating and credit limit, which are almost perfectly correlated. The SE of limit's coefficient is 12 times larger than in a model with age and limit, and limit is no longer significant. What should you conclude?",
+    "options": [
+      {"text": "Limit's estimate is now very imprecise; its insignificance may reflect collinearity rather than no effect", "correct": true},
+      {"text": "Limit's coefficient is now biased, so the model with rating is invalid", "misconception": "collinearity_causes_bias"},
+      {"text": "Limit has no effect on balance"},
+      {"text": "The effect of limit now includes the effect of rating", "misconception": "ignores_holding_fixed"}
+    ],
+    "explanation": "Collinearity makes it hard to separate the two effects, so SEs balloon. That can hide a real effect without biasing it."
+  },
+  {
+    "id": "mlr-co-3", "concept": "multiple_regression", "level": 3, "target": "collinearity_causes_bias",
+    "source": "Lecture 4, slide 55",
+    "stem": "Which is the more serious problem: (a) leaving out a variable correlated with both Y and another predictor, or (b) including two highly correlated predictors?",
+    "options": [
+      {"text": "(a): omitted-variable bias makes estimates systematically wrong, while collinearity only makes them noisy", "correct": true},
+      {"text": "(b): collinearity biases every coefficient, while omitting a variable just lowers R²", "misconception": "collinearity_causes_bias"},
+      {"text": "They are equally serious because both violate corr(X, ε) = 0"},
+      {"text": "Neither affects coefficient estimates; they only affect R²"}
+    ],
+    "explanation": "Lecture 4: omitted-variable bias 'creates more problem', since it biases estimates. Collinearity leads to noisy estimates."
+  },
+  {
+    "id": "mlr-du-1", "concept": "multiple_regression", "level": 1, "target": "dummy_is_group_mean",
+    "source": "Lecture 4, slide 22",
+    "stem": "Income = β0 + β1·Female + ε, where Female = 1 for women and 0 for men. β̂1 estimates...",
+    "options": [
+      {"text": "mean income of women minus mean income of men", "correct": true},
+      {"text": "mean income of women", "misconception": "dummy_is_group_mean"},
+      {"text": "mean income of men"},
+      {"text": "the probability that a person is female"}
+    ],
+    "explanation": "β̂0 is the base group's (men's) mean; β̂1 is the difference between women and the base."
+  },
+  {
+    "id": "mlr-du-2", "concept": "multiple_regression", "level": 2, "target": "dummy_is_group_mean",
+    "source": "Lecture 4, slide 23",
+    "stem": "Spending = β0 + β1·Summer + β2·Fall + β3·Winter + ε, with Spring as the base season. Estimates: β̂0 = 200, β̂2 = 30. Estimated average spending in Fall is...",
+    "options": [
+      {"text": "230", "correct": true},
+      {"text": "30", "misconception": "dummy_is_group_mean"},
+      {"text": "170"},
+      {"text": "200"}
+    ],
+    "explanation": "Fall's mean = base (Spring) mean + Fall's difference = 200 + 30 = 230."
+  },
+  {
+    "id": "mlr-du-3", "concept": "multiple_regression", "level": 3, "target": "dummy_is_group_mean",
+    "source": "Lecture 4, slide 23",
+    "stem": "Same seasonal model with Spring as base: β̂0 = 200, β̂Summer = 50, β̂Fall = 30, β̂Winter = -20. Which season has the highest estimated average spending?",
+    "options": [
+      {"text": "Summer, at 250", "correct": true},
+      {"text": "Spring, at 200, since it has the largest coefficient", "misconception": "dummy_is_group_mean"},
+      {"text": "Summer, at 50"},
+      {"text": "It cannot be determined without a model that uses Summer as the base"}
+    ],
+    "explanation": "Season means: Spring 200, Summer 250, Fall 230, Winter 180. Each dummy is a difference from Spring."
+  },
+
+  {
+    "id": "ovf-tr-1", "concept": "overfitting", "level": 1, "target": "train_error_is_enough",
+    "source": "Lecture 4, slide 9; Lecture 5, slide 13",
+    "stem": "Adding one more predictor to an OLS regression will always...",
+    "options": [
+      {"text": "keep R² the same or raise it on the training data, even if the predictor is useless, without guaranteeing better predictions", "correct": true},
+      {"text": "improve the model's predictions on new data", "misconception": "train_error_is_enough"},
+      {"text": "raise the test MSE"},
+      {"text": "lower R² if the predictor is useless"}
+    ],
+    "explanation": "Training RSS can only go down as predictors are added. That is why RSS/R² cannot be used to choose among models of different sizes."
+  },
+  {
+    "id": "ovf-tr-2", "concept": "overfitting", "level": 2, "target": "train_error_is_enough",
+    "source": "Lecture 5, slides 7-8",
+    "stem": "Polynomial fits of degree 1, 2 and 5 have training MSE 24, 19, 15 and test MSE 25, 20, 27. Which degree should you choose?",
+    "options": [
+      {"text": "Degree 2: lowest test MSE", "correct": true},
+      {"text": "Degree 5: lowest training MSE", "misconception": "train_error_is_enough"},
+      {"text": "Degree 1: a straight line has both the lowest bias and the lowest variance", "misconception": "bias_variance_reversed"},
+      {"text": "None can be chosen without R²"}
+    ],
+    "explanation": "We care about new data, so compare test MSE. Smallest training MSE ≠ smallest test MSE."
+  },
+  {
+    "id": "ovf-tr-3", "concept": "overfitting", "level": 3, "target": "train_error_is_enough",
+    "source": "Lecture 5, slides 5-9",
+    "stem": "A model has R² = 0.99 on training data but much larger error on a holdout set. Best diagnosis and fix?",
+    "options": [
+      {"text": "Overfitting: it is fitting noise; reduce flexibility or regularize, and choose complexity by validation error", "correct": true},
+      {"text": "The model is excellent; the holdout set must be unrepresentative, so report the training R²", "misconception": "train_error_is_enough"},
+      {"text": "High bias: add more polynomial terms to make it more flexible", "misconception": "bias_variance_reversed"},
+      {"text": "Heteroscedasticity: use robust standard errors"}
+    ],
+    "explanation": "A big gap between training and test error is the signature of overfitting (high variance)."
+  },
+  {
+    "id": "ovf-bv-1", "concept": "overfitting", "level": 1, "target": "bias_variance_reversed",
+    "source": "Lecture 5, slides 9-10",
+    "stem": "As a model becomes more flexible (e.g., a higher polynomial degree), typically...",
+    "options": [
+      {"text": "bias decreases and variance increases", "correct": true},
+      {"text": "bias increases and variance decreases", "misconception": "bias_variance_reversed"},
+      {"text": "both bias and variance decrease"},
+      {"text": "both bias and variance increase"}
+    ],
+    "explanation": "Flexible models can follow the true shape (low bias) but change a lot between training sets (high variance)."
+  },
+  {
+    "id": "ovf-bv-2", "concept": "overfitting", "level": 2, "target": "bias_variance_reversed",
+    "source": "Lecture 5, slide 9",
+    "stem": "A straight line is fitted to data that clearly curve. The prediction error is mainly due to...",
+    "options": [
+      {"text": "high bias: the model is too simple to capture the true shape", "correct": true},
+      {"text": "high variance: a straight line changes a lot from one training sample to the next", "misconception": "bias_variance_reversed"},
+      {"text": "irreducible error Var(ε), which no model can remove"},
+      {"text": "overfitting to noise in the training data"}
+    ],
+    "explanation": "Bias is the error from approximating a complicated truth with a too-simple f(). A straight line on curved data underfits."
+  },
+  {
+    "id": "ovf-bv-3", "concept": "overfitting", "level": 3, "target": "bias_variance_reversed",
+    "source": "Lecture 5, slide 9",
+    "stem": "You refit a degree-10 polynomial on many different training samples. The fitted curves vary wildly, but on average they track the true curve. What does this show, and what would help?",
+    "options": [
+      {"text": "High variance, low bias: reduce flexibility, regularize, or add data", "correct": true},
+      {"text": "High bias: raise the degree further so each fit matches its sample better", "misconception": "bias_variance_reversed"},
+      {"text": "Irreducible error: nothing can reduce it"},
+      {"text": "Nothing is wrong as long as each fit has low training MSE", "misconception": "train_error_is_enough"}
+    ],
+    "explanation": "Var(f̂) measures how much f̂ changes across training sets. Tracking the truth on average means low bias."
+  },
+  {
+    "id": "ovf-va-1", "concept": "overfitting", "level": 1, "target": "validation_reuses_fit_data",
+    "source": "Lecture 5, slide 35",
+    "stem": "Why do we hold out a validation set instead of just measuring error on the training data?",
+    "options": [
+      {"text": "Error on the data the model was fitted to is overly optimistic; we need data the model has not seen", "correct": true},
+      {"text": "It is not really needed: if n is large, training error is a fine estimate of prediction error", "misconception": "validation_reuses_fit_data"},
+      {"text": "To have more data for estimating the coefficients"},
+      {"text": "To make R² higher"}
+    ],
+    "explanation": "The fit minimizes training error, so MSE_train < MSE_test. Only unseen data measures out-of-sample performance."
+  },
+  {
+    "id": "ovf-va-2", "concept": "overfitting", "level": 2, "target": "validation_reuses_fit_data",
+    "source": "Lecture 5, slides 36-37",
+    "stem": "In 5-fold cross-validation, each observation is...",
+    "options": [
+      {"text": "used for validation exactly once, and for training in the other 4 fits", "correct": true},
+      {"text": "used for both training and validation within the same fit, and the errors are averaged", "misconception": "validation_reuses_fit_data"},
+      {"text": "used only for training; validation uses a separate fresh dataset"},
+      {"text": "used in only one of the 5 fits"}
+    ],
+    "explanation": "Each fold takes a turn as the validation set while the model is fit on the other k-1 folds."
+  },
+  {
+    "id": "ovf-va-3", "concept": "overfitting", "level": 3, "target": "validation_reuses_fit_data",
+    "source": "Lecture 5, slides 35-37, 49",
+    "stem": "An analyst tries 50 values of λ, picks the one with the lowest error on the test set, and reports that test error as the model's expected performance. What is the problem?",
+    "options": [
+      {"text": "The test set was used for tuning, so its error is optimistic; tune with cross-validation and keep the test set for the final estimate", "correct": true},
+      {"text": "No problem: the test set was not used to estimate coefficients, so its error is unbiased", "misconception": "validation_reuses_fit_data"},
+      {"text": "λ should have been tuned on training error, which is more stable", "misconception": "train_error_is_enough"},
+      {"text": "The only problem is that 50 values of λ is too few"}
+    ],
+    "explanation": "Choosing λ by test error makes the test set part of model selection, so the reported error is biased downward."
+  },
+
+  {
+    "id": "sel-la-1", "concept": "model_selection", "level": 1, "target": "bigger_lambda_less_shrinkage",
+    "source": "Lecture 5, slides 41-42",
+    "stem": "Ridge regression minimizes RSS + λ·Σβj². As λ becomes very large, the coefficient estimates...",
+    "options": [
+      {"text": "shrink toward zero", "correct": true},
+      {"text": "approach the OLS estimates", "misconception": "bigger_lambda_less_shrinkage"},
+      {"text": "all become exactly zero at some finite λ", "misconception": "ridge_zeroes_coefficients"},
+      {"text": "grow larger in magnitude"}
+    ],
+    "explanation": "A large λ makes the penalty dominate, pulling all β's toward 0. λ = 0 gives OLS."
+  },
+  {
+    "id": "sel-la-2", "concept": "model_selection", "level": 2, "target": "bigger_lambda_less_shrinkage",
+    "source": "Lecture 5, slides 42, 49",
+    "stem": "Which value of λ gives the most flexible ridge model (lowest bias, highest variance)?",
+    "options": [
+      {"text": "λ = 0, which is just OLS", "correct": true},
+      {"text": "λ = 1000", "misconception": "bigger_lambda_less_shrinkage"},
+      {"text": "λ = 1"},
+      {"text": "All values are equally flexible because the same predictors are used"}
+    ],
+    "explanation": "More λ means more shrinkage, so less flexibility. λ = 0 applies no penalty at all."
+  },
+  {
+    "id": "sel-la-3", "concept": "model_selection", "level": 3, "target": "bigger_lambda_less_shrinkage",
+    "source": "Lecture 5, slides 9, 42, 49",
+    "stem": "Cross-validated error vs λ for ridge is U-shaped: high at very small λ, lowest at λ = 5, high again at very large λ. How do you explain the two ends?",
+    "options": [
+      {"text": "Small λ: little shrinkage, high variance (overfitting). Large λ: heavy shrinkage, high bias (underfitting).", "correct": true},
+      {"text": "Small λ: heavy shrinkage, underfitting. Large λ: close to OLS, overfitting.", "misconception": "bigger_lambda_less_shrinkage"},
+      {"text": "Small λ: little shrinkage, which causes high bias. Large λ: heavy shrinkage, which causes high variance.", "misconception": "bias_variance_reversed"},
+      {"text": "Both ends overfit; only the middle avoids it"}
+    ],
+    "explanation": "λ controls flexibility: small λ ≈ OLS with all predictors (variance), large λ ≈ all β's near 0 (bias)."
+  },
+  {
+    "id": "sel-rz-1", "concept": "model_selection", "level": 1, "target": "ridge_zeroes_coefficients",
+    "source": "Lecture 5, slides 44-47",
+    "stem": "Which method can set some coefficients exactly to zero, performing variable selection?",
+    "options": [
+      {"text": "LASSO", "correct": true},
+      {"text": "Both ridge regression and LASSO", "misconception": "ridge_zeroes_coefficients"},
+      {"text": "Ordinary least squares"},
+      {"text": "Neither: only best subset selection can"}
+    ],
+    "explanation": "LASSO's L1 penalty produces exact zeros; ridge shrinks toward zero but never exactly to it."
+  },
+  {
+    "id": "sel-rz-2", "concept": "model_selection", "level": 2, "target": "ridge_zeroes_coefficients",
+    "source": "Lecture 5, slides 44-47",
+    "stem": "You have 200 predictors and want an interpretable model that uses only a handful of them. Which shrinkage method fits this goal?",
+    "options": [
+      {"text": "LASSO, because its L1 penalty can set many coefficients exactly to zero", "correct": true},
+      {"text": "Ridge, because it shrinks unimportant coefficients to exactly zero", "misconception": "ridge_zeroes_coefficients"},
+      {"text": "Ridge with λ = 0, which gives the strongest selection", "misconception": "bigger_lambda_less_shrinkage"},
+      {"text": "OLS with all 200 predictors"}
+    ],
+    "explanation": "Only LASSO does automatic variable selection. Ridge keeps all 200 predictors, just shrunk."
+  },
+  {
+    "id": "sel-rz-3", "concept": "model_selection", "level": 3, "target": "ridge_zeroes_coefficients",
+    "source": "Lecture 5, slides 46-47",
+    "stem": "Why does LASSO produce coefficients that are exactly zero while ridge does not?",
+    "options": [
+      {"text": "LASSO's constraint region |β1| + |β2| ≤ s has corners on the axes, where the RSS contours tend to touch it; ridge's circle has no corners", "correct": true},
+      {"text": "Both give exact zeros for large enough λ; LASSO just reaches them at a smaller λ", "misconception": "ridge_zeroes_coefficients"},
+      {"text": "Ridge requires standardized predictors, which prevents zeros"},
+      {"text": "LASSO uses a squared penalty, which grows faster near zero"}
+    ],
+    "explanation": "Geometrically, the OLS ellipse first touches the diamond at a corner (a zero coefficient); a circle is touched at a generic point."
+  },
+  {
+    "id": "sel-st-1", "concept": "model_selection", "level": 1, "target": "no_standardization_needed",
+    "source": "Lecture 5, slides 43, 45",
+    "stem": "Before fitting ridge or LASSO, predictors should usually be...",
+    "options": [
+      {"text": "standardized, so each has standard deviation 1", "correct": true},
+      {"text": "left in their original units, since shrinkage methods are scale invariant like OLS", "misconception": "no_standardization_needed"},
+      {"text": "log-transformed"},
+      {"text": "converted into dummy variables"}
+    ],
+    "explanation": "The penalty treats all β's alike, so predictors must be on a common scale. OLS is scale invariant; ridge/LASSO are not."
+  },
+  {
+    "id": "sel-st-2", "concept": "model_selection", "level": 2, "target": "no_standardization_needed",
+    "source": "Lecture 5, slide 43",
+    "stem": "In a ridge regression without standardization, you re-measure income from dollars to thousands of dollars. What happens?",
+    "options": [
+      {"text": "The fit changes: income's coefficient is penalized differently, which also changes the other coefficients", "correct": true},
+      {"text": "Nothing changes except that income's coefficient scales by 1000, exactly as in OLS", "misconception": "no_standardization_needed"},
+      {"text": "Income drops out of the model"},
+      {"text": "The penalty λ is automatically rescaled, so the fit is identical"}
+    ],
+    "explanation": "Lecture 5: ridge coefficients are not scale invariant, and the fit of one coefficient depends on the scale of the others."
+  },
+  {
+    "id": "sel-st-3", "concept": "model_selection", "level": 3, "target": "no_standardization_needed",
+    "source": "Lecture 5, slides 43-45",
+    "stem": "Age (years, SD 10) and income (dollars, SD 20,000) are both truly important. You fit LASSO WITHOUT standardizing. What is likely?",
+    "options": [
+      {"text": "Age's per-unit coefficient is large, so it is penalized far more heavily and may be dropped unfairly", "correct": true},
+      {"text": "Both are treated fairly because LASSO, like OLS, does not depend on units", "misconception": "no_standardization_needed"},
+      {"text": "Neither is dropped, because only ridge drops variables", "misconception": "ridge_zeroes_coefficients"},
+      {"text": "Income is dropped because its raw values are larger"}
+    ],
+    "explanation": "A per-dollar coefficient is tiny, so its penalty is tiny; a per-year coefficient is big and gets shrunk hard. Standardizing fixes this."
+  },
+
+  {
+    "id": "log-pc-1", "concept": "logistic", "level": 1, "target": "logit_coef_is_prob_change",
+    "source": "Lecture 8, slide 24",
+    "stem": "In the logistic model ln(P / (1 - P)) = β0 + β1·X, β1 is the change in ___ for a one-unit increase in X.",
+    "options": [
+      {"text": "the log-odds that Y = 1", "correct": true},
+      {"text": "the probability that Y = 1", "misconception": "logit_coef_is_prob_change"},
+      {"text": "the value of Y"},
+      {"text": "the odds that Y = 1, added directly to the current odds"}
+    ],
+    "explanation": "The logit model is linear in the log-odds. The effect on odds is multiplicative (× e^β1), and the effect on probability varies."
+  },
+  {
+    "id": "log-pc-2", "concept": "logistic", "level": 2, "target": "logit_coef_is_prob_change",
+    "source": "Lecture 8, slides 28-29",
+    "stem": "In the Coke-vs-Pepsi logit model, price_Coke has β̂ = -0.9665 (odds ratio 0.380). What does a $1 increase in Coke's price do?",
+    "options": [
+      {"text": "Multiplies the odds of buying Coke by about 0.38 (a 62% drop in the odds)", "correct": true},
+      {"text": "Lowers the probability of buying Coke by 0.9665", "misconception": "logit_coef_is_prob_change"},
+      {"text": "Lowers the probability of buying Coke by 62 percentage points", "misconception": "odds_equals_probability"},
+      {"text": "Makes the probability of buying Coke equal to 0.38", "misconception": "odds_equals_probability"}
+    ],
+    "explanation": "exp(-0.9665) = 0.380 is an odds ratio. It scales the odds; it is not a probability or a change in probability."
+  },
+  {
+    "id": "log-pc-3", "concept": "logistic", "level": 3, "target": "logit_coef_is_prob_change",
+    "source": "Lecture 8, slides 14, 28-35",
+    "stem": "The linear probability model gives price_Coke = -0.129; the logit gives -0.9665. A classmate says the logit shows a price effect 7 times larger. Best response?",
+    "options": [
+      {"text": "The numbers aren't comparable: -0.129 is a change in probability, -0.9665 a change in log-odds, whose effect on probability depends on the baseline", "correct": true},
+      {"text": "Agreed: both are changes in purchase probability and the logit's is bigger", "misconception": "logit_coef_is_prob_change"},
+      {"text": "They should be equal, since a price change shifts probability by the same amount for every customer; one model is misspecified", "misconception": "constant_marginal_effect"},
+      {"text": "The LPM coefficient is in odds, so exponentiate it before comparing"}
+    ],
+    "explanation": "LPM coefficients are probability changes; logit coefficients are log-odds changes. They live on different scales."
+  },
+  {
+    "id": "log-od-1", "concept": "logistic", "level": 1, "target": "odds_equals_probability",
+    "source": "Lecture 8, slides 25-26",
+    "stem": "If the probability of an event is 0.2, its odds are...",
+    "options": [
+      {"text": "0.25 (1 : 4)", "correct": true},
+      {"text": "0.2", "misconception": "odds_equals_probability"},
+      {"text": "0.8"},
+      {"text": "5"}
+    ],
+    "explanation": "Odds = P / (1 - P) = 0.2 / 0.8 = 0.25."
+  },
+  {
+    "id": "log-od-2", "concept": "logistic", "level": 2, "target": "odds_equals_probability",
+    "source": "Lecture 8, slides 25-26",
+    "stem": "The odds that a customer buys are 1 : 3. What is the probability that the customer buys?",
+    "options": [
+      {"text": "0.25", "correct": true},
+      {"text": "0.33 (one third)", "misconception": "odds_equals_probability"},
+      {"text": "0.75"},
+      {"text": "3"}
+    ],
+    "explanation": "Odds m : n means probability m / (m + n) = 1 / 4."
+  },
+  {
+    "id": "log-od-3", "concept": "logistic", "level": 3, "target": "odds_equals_probability",
+    "source": "Lecture 8, slides 26-29",
+    "stem": "An in-store display has an odds ratio of 2 for purchase. For a customer whose purchase probability was 0.5, what does the display do?",
+    "options": [
+      {"text": "Doubles the odds from 1 to 2, so the probability rises to about 0.67", "correct": true},
+      {"text": "Doubles the probability, from 0.5 to 1.0", "misconception": "odds_equals_probability"},
+      {"text": "Raises the probability by 2 percentage points, to 0.52", "misconception": "logit_coef_is_prob_change"},
+      {"text": "Doubles the log-odds"}
+    ],
+    "explanation": "P = 0.5 means odds = 1. Doubling gives odds 2, i.e., P = 2/3."
+  },
+  {
+    "id": "log-me-1", "concept": "logistic", "level": 1, "target": "constant_marginal_effect",
+    "source": "Lecture 8, slide 35",
+    "stem": "In a logit model the marginal effect of Xj on P(Y = 1) is βj · P · (1 - P). When is this effect largest?",
+    "options": [
+      {"text": "When P is close to 0.5", "correct": true},
+      {"text": "It is the same for everyone: it always equals βj", "misconception": "constant_marginal_effect"},
+      {"text": "When P is close to 0 or 1"},
+      {"text": "When Xj equals zero"}
+    ],
+    "explanation": "P·(1 - P) peaks at P = 0.5 (value 0.25) and shrinks toward 0 near P = 0 or 1."
+  },
+  {
+    "id": "log-me-2", "concept": "logistic", "level": 2, "target": "constant_marginal_effect",
+    "source": "Lecture 8, slide 35",
+    "stem": "Coke loyalists have P(Coke) ≈ 0.95; switchers have P(Coke) ≈ 0.5. In a logit model, a rise in Pepsi's price changes P(Coke) the most for...",
+    "options": [
+      {"text": "switchers", "correct": true},
+      {"text": "both groups equally, because the price coefficient is the same for everyone", "misconception": "constant_marginal_effect"},
+      {"text": "loyalists, because they are more likely to buy Coke anyway"},
+      {"text": "neither: price changes only affect the odds, not the probability"}
+    ],
+    "explanation": "The marginal effect β·P·(1 - P) is about 0.25β for switchers and about 0.05β for loyalists."
+  },
+  {
+    "id": "log-me-3", "concept": "logistic", "level": 3, "target": "constant_marginal_effect",
+    "source": "Lecture 8, slides 35, 41",
+    "stem": "Using a logit model, you want to send a coupon to the customers whose purchase probability it will change the most. Whom should you target?",
+    "options": [
+      {"text": "Customers with predicted probability near 0.5, where βP(1 - P) is largest", "correct": true},
+      {"text": "Anyone: the coupon's coefficient implies the same probability boost for every customer", "misconception": "constant_marginal_effect"},
+      {"text": "Customers with the highest predicted probability, since they respond most"},
+      {"text": "Customers for whom the coefficient is largest, since β is the probability boost", "misconception": "logit_coef_is_prob_change"}
+    ],
+    "explanation": "Customers who are nearly certain either way (P ≈ 0 or 1) barely move; the 'switchers' near 0.5 move most."
+  },
+
+  {
+    "id": "cls-ss-1", "concept": "classification", "level": 1, "target": "sensitivity_specificity_swap",
+    "source": "Lecture 8, slides 53-54",
+    "stem": "Sensitivity is...",
+    "options": [
+      {"text": "TP / (TP + FN): the share of actual positives correctly classified", "correct": true},
+      {"text": "TN / (TN + FP): the share of actual negatives correctly classified", "misconception": "sensitivity_specificity_swap"},
+      {"text": "(TP + TN) / total: the share of all cases correctly classified"},
+      {"text": "TP / (TP + FP): the share of predicted positives that are correct"}
+    ],
+    "explanation": "Sensitivity = true positive rate. Specificity = true negative rate."
+  },
+  {
+    "id": "cls-ss-2", "concept": "classification", "level": 2, "target": "sensitivity_specificity_swap",
+    "source": "Lecture 8, slides 52-54",
+    "stem": "There are 100 fraud cases and 9,900 legitimate ones. The model flags 80 of the fraud cases and 99 of the legitimate ones. What is its sensitivity?",
+    "options": [
+      {"text": "80%", "correct": true},
+      {"text": "99%", "misconception": "sensitivity_specificity_swap"},
+      {"text": "98.8%"},
+      {"text": "44.7%"}
+    ],
+    "explanation": "Sensitivity = TP / (TP + FN) = 80 / 100. Specificity = 9,801 / 9,900 = 99%. Accuracy = 98.8%."
+  },
+  {
+    "id": "cls-ss-3", "concept": "classification", "level": 3, "target": "sensitivity_specificity_swap",
+    "source": "Lecture 8, slides 59-60",
+    "stem": "In fraud detection, a missed fraud (false negative) costs the bank far more than a false alarm. Which measure should the bank prioritize?",
+    "options": [
+      {"text": "Sensitivity: catch as many actual frauds as possible, accepting more false alarms", "correct": true},
+      {"text": "Specificity, because it measures how many fraud cases are caught", "misconception": "sensitivity_specificity_swap"},
+      {"text": "Total accuracy, because it combines both error types", "misconception": "accuracy_on_rare_events"},
+      {"text": "R² of the logit model"}
+    ],
+    "explanation": "False negatives reduce sensitivity. When FNs are costly, you push sensitivity up."
+  },
+  {
+    "id": "cls-th-1", "concept": "classification", "level": 1, "target": "threshold_direction",
+    "source": "Lecture 8, slide 53",
+    "stem": "If you raise the classification threshold (e.g., from 0.5 to 0.9), sensitivity...",
+    "options": [
+      {"text": "decreases", "correct": true},
+      {"text": "increases", "misconception": "threshold_direction"},
+      {"text": "stays the same, because the model has not changed"},
+      {"text": "becomes equal to specificity"}
+    ],
+    "explanation": "A higher threshold labels fewer cases positive, so fewer actual positives are caught."
+  },
+  {
+    "id": "cls-th-2", "concept": "classification", "level": 2, "target": "threshold_direction",
+    "source": "Lecture 8, slides 53-55",
+    "stem": "Raising the threshold from 0.55 to 0.9 will typically...",
+    "options": [
+      {"text": "reduce false positives and increase false negatives", "correct": true},
+      {"text": "increase false positives and reduce false negatives", "misconception": "threshold_direction"},
+      {"text": "reduce both false positives and false negatives"},
+      {"text": "increase both false positives and false negatives"}
+    ],
+    "explanation": "Fewer cases are called positive, so fewer false alarms, but more real positives are missed."
+  },
+  {
+    "id": "cls-th-3", "concept": "classification", "level": 3, "target": "threshold_direction",
+    "source": "Lecture 8, slides 53-60",
+    "stem": "A bank wants fewer missed frauds and will accept more false alarms. How should it move the threshold, and what happens to specificity?",
+    "options": [
+      {"text": "Lower the threshold; sensitivity rises and specificity falls", "correct": true},
+      {"text": "Raise the threshold; sensitivity rises and specificity falls", "misconception": "threshold_direction"},
+      {"text": "Lower the threshold; specificity rises because more fraud is caught", "misconception": "sensitivity_specificity_swap"},
+      {"text": "Keep it at 0.5; the threshold does not affect which frauds are caught"}
+    ],
+    "explanation": "Lower threshold means more positives flagged: sensitivity up, specificity down."
+  },
+  {
+    "id": "cls-ac-1", "concept": "classification", "level": 1, "target": "accuracy_on_rare_events",
+    "source": "Lecture 8, slides 52, 62",
+    "stem": "Only 2% of transactions are fraud. A 'model' that labels every transaction as not-fraud has 98% accuracy. What does this show?",
+    "options": [
+      {"text": "Accuracy is misleading for rare events: this model catches zero fraud", "correct": true},
+      {"text": "It is a strong model, since 98% accuracy is very high", "misconception": "accuracy_on_rare_events"},
+      {"text": "Its specificity is 0%", "misconception": "sensitivity_specificity_swap"},
+      {"text": "The accuracy must have been computed incorrectly"}
+    ],
+    "explanation": "Sensitivity is 0% (no fraud caught) even though accuracy is 98%; the majority class dominates accuracy."
+  },
+  {
+    "id": "cls-ac-2", "concept": "classification", "level": 2, "target": "accuracy_on_rare_events",
+    "source": "Lecture 8, slides 52-60",
+    "stem": "Fraud is 2% of cases and missed fraud is costly. Model A: 98.5% accuracy, 10% sensitivity. Model B: 93% accuracy, 85% sensitivity. Which do you choose?",
+    "options": [
+      {"text": "B: it catches most fraud; A's accuracy mostly reflects the 98% non-fraud cases", "correct": true},
+      {"text": "A: higher overall accuracy means better classification", "misconception": "accuracy_on_rare_events"},
+      {"text": "A: 10% sensitivity means only 10% false alarms", "misconception": "sensitivity_specificity_swap"},
+      {"text": "They are equivalent"}
+    ],
+    "explanation": "A misses 90% of fraud. With rare, costly events, sensitivity matters far more than raw accuracy."
+  },
+  {
+    "id": "cls-ac-3", "concept": "classification", "level": 3, "target": "accuracy_on_rare_events",
+    "source": "Lecture 8, slides 62-63",
+    "stem": "After oversampling fraud cases to 20% of the training data, accuracy drops from 98% to 90% but sensitivity rises from 5% to 70%. A teammate says oversampling made the model worse. Response?",
+    "options": [
+      {"text": "Disagree: the 98% came from predicting the majority class; the model now actually detects fraud", "correct": true},
+      {"text": "Agree: accuracy fell by 8 points, so the model got worse", "misconception": "accuracy_on_rare_events"},
+      {"text": "Agree: higher sensitivity means more false alarms, so the model is worse", "misconception": "sensitivity_specificity_swap"},
+      {"text": "They cannot be compared, because oversampling changes the coefficients"}
+    ],
+    "explanation": "With rare events, a jump from 5% to 70% sensitivity is a big improvement even though accuracy drops."
+  }
+]
