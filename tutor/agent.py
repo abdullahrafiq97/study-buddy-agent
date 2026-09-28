@@ -12,7 +12,7 @@ from typing import List, Literal, Optional
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from . import config
+from . import config, usage
 from .concepts import CONCEPTS, LEVELS
 from .policies import ACTIONS, Context, Decision, RuleBasedPolicy, check_decision
 
@@ -173,6 +173,7 @@ class AgentPolicy:
             )
         except Exception as e:  # surface API problems (quota, auth) clearly
             raise AgentError(f"LLM call failed: {e}") from e
+        usage.record("agent", self.model, resp.usage)
         parsed = resp.choices[0].message.parsed
         if parsed is None:
             raise AgentError("LLM returned no structured decision (refusal or empty).")

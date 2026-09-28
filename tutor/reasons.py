@@ -17,7 +17,7 @@ from typing import Literal, Optional
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from . import config
+from . import config, usage
 from .bank import Question
 from .concepts import CONCEPTS, MISCONCEPTIONS
 
@@ -49,8 +49,18 @@ class _ReadingSchema(BaseModel):
 
 SYSTEM_PROMPT = """You read a student's one-line explanation of a wrong multiple-choice answer and say what it reveals.
 Judge only from what the student wrote, not from which option they picked: a student can pick an option for a
-reason other than the one it was designed to catch. Be conservative: if the reason is vague ("seemed right",
-"not sure"), answer unclear. Only name a misconception id if the student's words express that specific belief."""
+reason other than the one it was designed to catch.
+
+Categories:
+- slip: they say they rushed, skimmed, misread, or clicked the wrong option. Any mention of rushing or misreading
+  is a slip, even if they don't say they knew the answer.
+- guess: they say they guessed, had no idea, or picked at random, without describing a belief.
+- gap: they say they don't know or never understood the concept (e.g. "never got what lasso does").
+- misconception: they state a specific wrong belief. Match it to the list by MEANING, not wording: students
+  paraphrase, and a belief stated about a specific number (e.g. "10% sensitivity means 10% false alarms")
+  still matches the general misconception it instances (here, swapping sensitivity and specificity).
+- unclear: vague reasons like "seemed right" or "not sure".
+Only name a misconception id if the student's words express that belief."""
 
 
 def _prompt(q: Question, chosen_index: int, reason: str) -> str:
@@ -70,7 +80,7 @@ def _prompt(q: Question, chosen_index: int, reason: str) -> str:
 
 class ReasonReader:
     def __init__(self, model: Optional[str] = None, client: Optional[OpenAI] = None):
-        self.model = model or config.AGENT_MODEL
+        self.model = model or config.READER_MODEL
         self._client = client
 
     @property
@@ -93,6 +103,7 @@ class ReasonReader:
             )
         except Exception as e:
             raise AgentError(f"Reading the reason failed: {e}") from e
+        usage.record("reader", self.model, resp.usage)
         r = resp.choices[0].message.parsed
         if r is None:
             return ReasonReading("unclear", None, "weak", "", "No reading returned.", reason)

@@ -107,11 +107,15 @@ phrase 'misconception', never quote the option text word for word, and don't say
 def _cause_text(cause: str) -> str:
     if cause.startswith("misconception:"):
         m = MISCONCEPTIONS[cause.split(":", 1)[1]]
-        return ("You hold the following belief and think it is correct. Explain your pick from inside that belief, "
-                f"in your own words (a teacher describes your belief as: {m.description})")
+        return ("You sincerely hold this belief and think it is TRUE: " + m.description + "\n"
+                "Justify the option you picked using that belief, in your own casual words. "
+                "Argue FOR your pick; do not mention any doubts or the correct view.")
     if cause == "slip":
-        return "You actually know this topic, but you read the question too fast or mixed up two options by accident."
-    return "You don't really understand this topic and picked mostly at random, maybe with a vague half-reason."
+        return ("You understand this topic well and would normally get it right. This time you rushed: you skimmed "
+                "the question or clicked the wrong letter. Say that you rushed or misread. Do NOT describe any "
+                "belief about the topic.")
+    return ("You don't understand this topic at all and picked at random. Say you didn't know or guessed. "
+            "Do NOT give a specific technical justification.")
 
 
 def student_reason(q: Question, idx: int, cause: str, rng: random.Random) -> str:
@@ -125,9 +129,12 @@ def student_reason(q: Question, idx: int, cause: str, rng: random.Random) -> str
     resp = client.chat.completions.create(
         model=config.STUDENT_MODEL,
         messages=[{"role": "system", "content": STUDENT_PROMPT.format(cause=_cause_text(cause))},
-                  {"role": "user", "content": f"{q.stem}\n\n{opts}\n\nYou picked {'ABCD'[idx]}. Your one line:"}],
+                  {"role": "user", "content": f"{q.stem}\n\n{opts}\n\nYou picked {'ABCD'[idx]}: "
+                                              f"\"{q.options[idx].text}\". Your one line:"}],
         **({"reasoning_effort": "low"} if config.STUDENT_MODEL.startswith("gpt-5") else {}),
     )
+    from . import usage
+    usage.record("simulated student", config.STUDENT_MODEL, resp.usage)
     return (resp.choices[0].message.content or "idk").strip().strip('"')
 
 
@@ -308,6 +315,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--policies", nargs="+", default=["heuristic", "rule", "random"], choices=["agent", "agent+reasons", "heuristic", "heuristic+reasons", "rule", "random"])
     ap.add_argument("--runs", type=int, default=10)
+    ap.add_argument("--run-offset", type=int, default=0,
+                    help="Start run numbers here, to test on fresh seeds not used while tuning")
     ap.add_argument("--max-q", type=int, default=10)
     ap.add_argument("--min-q", type=int, default=5)
     ap.add_argument("--students", nargs="+", default=[p.name for p in PERSONAS], choices=list(PERSONA_BY_NAME))
@@ -326,9 +335,11 @@ def main():
     if args.show:
         for pol in args.policies:
             print_trace(run_one(pol, PERSONA_BY_NAME[args.show], 0, args.max_q, args.min_q, bank, args.oracle))
+        from . import usage
+        print("\nLLM usage and cost:\n" + usage.report())
         return
 
-    jobs = [(pol, PERSONA_BY_NAME[s], run) for pol in args.policies for s in args.students for run in range(args.runs)]
+    jobs = [(pol, PERSONA_BY_NAME[s], run) for pol in args.policies for s in args.students for run in range(args.run_offset, args.run_offset + args.runs)]
     def safe_run(job):
         try:
             return run_one(job[0], job[1], job[2], args.max_q, args.min_q, bank, args.oracle)
@@ -351,6 +362,8 @@ def main():
     summary = summarize(results)
     (out / f"summary_{tag}.md").write_text(summary + "\n")
     print(summary)
+    from . import usage
+    print("\nLLM usage and cost:\n" + usage.report())
     print(f"\nSaved {len(results)} sessions to {out}/runs_{tag}.jsonl")
 
 
