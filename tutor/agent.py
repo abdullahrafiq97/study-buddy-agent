@@ -119,12 +119,13 @@ def render_state(ctx: Context) -> str:
             f"{cb.mean:.2f} ± {cb.sd:.2f} | {cb.asked} | {b.concept_label(cid)} | "
             f"{gap_signals(b, cid)} | {left[0]}/{left[1]}/{left[2]}{tag}"
         )
-    lines += ["", "MISCONCEPTIONS (id [status, hits, avoided]: description):"]
+    lines += ["", "MISCONCEPTIONS (misconception_id (concept) [status, hits, avoided]: description). "
+                  "Use the misconception_id alone as target_misconception:"]
     for cid in ctx.concepts:
         for m in CONCEPTS[cid].misconceptions:
             mb = b.misconception_beliefs[m.id]
             lines.append(
-                f"- {cid} / {m.id} [{mb.status}, hits={mb.hits:.1f}, avoided={mb.avoided:.1f}]: {m.description}"
+                f"- {m.id} ({cid}) [{mb.status}, hits={mb.hits:.1f}, avoided={mb.avoided:.1f}]: {m.description}"
             )
     lines += ["", "ANSWER HISTORY (oldest first):"]
     if not b.answers:
