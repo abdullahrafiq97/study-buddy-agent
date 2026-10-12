@@ -30,7 +30,8 @@ echo "OPENAI_API_KEY=sk-..." > .env
 .venv/bin/python -m tutor.simulate --policies agent+reasons --show swaps_sens_spec \
     --concepts logistic classification overfitting --max-q 12 --min-q 6 --confidence-noise 0.3
 
-# App: take the quiz yourself (http://localhost:7860)
+# App (http://localhost:7860): take the quiz yourself, or open "Watch a simulated student"
+# to watch each decision stream live, with the planted weakness and the final verdict
 .venv/bin/python app.py
 ```
 

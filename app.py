@@ -3,6 +3,8 @@
 
 Run:  .venv/bin/python app.py
 """
+import time
+
 import gradio as gr
 
 from tutor.agent import AgentError, AgentPolicy
@@ -10,10 +12,12 @@ from tutor.bank import load_bank
 from tutor.concepts import CONCEPT_LIST
 from tutor.policies import HeuristicPolicy, RandomPolicy, RuleBasedPolicy
 from tutor.render import (
-    CSS, beliefs_html, decision_html, diagnosis_md, feedback_md, option_choices, question_md, trace_md,
+    CSS, beliefs_html, decision_html, diagnosis_md, feedback_md, option_choices, question_md, sim_answer_html,
+    sim_question_html, sim_step_md, sim_trace_md, trace_md,
 )
 from tutor.session import Session
-from tutor.simulate import PERSONAS, PERSONA_BY_NAME, run_one
+from tutor import simulate as sim
+from tutor.simulate import PERSONAS, PERSONA_BY_NAME
 
 BANK = load_bank()
 
@@ -152,38 +156,58 @@ def next_q(session):
     return _show_question(session, step) if step else _show_end(session)
 
 
-def simulate(persona_name, policy_label, max_q):
+def simulate(persona_name, policy_label, read_reasons, noise, concepts, max_q, pause):
+    """Stream a session with a simulated student: each event updates the page as it happens."""
+    if not concepts:
+        raise gr.Error("Pick at least one topic.")
     persona = PERSONA_BY_NAME[persona_name]
+    sim.CONFIDENCE_NOISE = float(noise)
+    policy = SIM_POLICIES[policy_label] + ("+reasons" if read_reasons else "")
+    who = "The agent" if policy.startswith("agent") else "The rules"
+    truth = persona.truth(concepts)
+    header = (f"### Simulated student: {persona.name}\n{persona.description}  \n"
+              f"**Planted (hidden from the agent):** weak = {sorted(truth['weak']) or 'none'} · "
+              f"misconceptions = {sorted(truth['misconceptions']) or 'none'}")
+    latest, previous, beliefs, entries, summary, session = "", "", "", [], "", None
+    max_q = int(max_q)
     try:
-        r = run_one(SIM_POLICIES[policy_label], persona, 0, int(max_q), min(6, int(max_q)), BANK)
+        for event in sim.session_events(policy, persona, 0, max_q, min(6, max_q), BANK, concepts=concepts):
+            kind = event[0]
+            if kind == "start":
+                session = event[1]
+                beliefs = beliefs_html(session.beliefs)
+            elif kind == "deciding":
+                # Keep the previous step on screen while the next decision is made.
+                banner = (f"<div class='sb-card'><div class='sb-kicker'>Step {event[1]} of up to {max_q}</div>"
+                          f"<h4>⏳ {who} is deciding what to ask next… (previous step below)</h4></div>")
+                latest = banner + previous
+            elif kind == "decision":
+                step = event[1]
+                latest = decision_html(step) + (sim_question_html(step) if step.question else "")
+                if step.question is None:  # the agent chose to stop
+                    entries.append(sim_step_md(step))
+                yield header, latest, beliefs, sim_trace_md(entries), summary
+                time.sleep(float(pause))  # time to read the decision before the student answers
+                continue
+            elif kind == "answered":
+                step, cause = event[1], event[2]
+                latest = decision_html(step) + sim_question_html(step) + sim_answer_html(step, cause)
+                previous = latest
+                beliefs = beliefs_html(session.beliefs)
+                entries.append(sim_step_md(step, cause))
+            elif kind == "done":
+                r = event[1]
+                verdict = "✅ Exactly right" if r["exact"] else "❌ Not exactly right"
+                summary = (f"## {verdict}\n"
+                           f"**Planted:** weak = {sorted(truth['weak']) or 'none'} · misconceptions = "
+                           f"{sorted(truth['misconceptions']) or 'none'}  \n"
+                           f"**Found:** weak = {r['flagged_weak'] or 'none'} · misconceptions = "
+                           f"{r['flagged_misconceptions'] or 'none'}"
+                           + (f" · suspected = {r['suspected']}" if r["suspected"] else "")
+                           + f"  \n{r['questions']} questions · {r['stop_reason']}")
+            yield header, latest, beliefs, sim_trace_md(entries), summary
     except AgentError as e:
         raise gr.Error(_error(str(e)), duration=None)
-    truth = persona.truth([c.id for c in CONCEPT_LIST])
-    lines = [
-        f"### {persona.name}: {persona.description}",
-        f"**Planted:** weak = {sorted(truth['weak']) or 'none'} · misconceptions = {sorted(truth['misconceptions']) or 'none'}",
-        f"**Found:** weak = {r['flagged_weak'] or 'none'} · misconceptions = {r['flagged_misconceptions'] or 'none'}"
-        + (f" · suspected = {r['suspected']}" if r["suspected"] else ""),
-        f"**Exactly right:** {'yes' if r['exact'] else 'no'} · {r['questions']} questions · {r['stop_reason']}",
-        "",
-        "---",
-    ]
-    for t in r["trace"]:
-        head = f"**#{t['n']} {t['action']}**"
-        if t["concept"]:
-            head += f" → {t['concept']} L{t['level']}" + (f" (testing `{t['target']}`)" if t["target"] else "")
-        lines.append(head)
-        if t["hypothesis"]:
-            lines.append(f"- read: {t['hypothesis']}")
-        lines.append(f"- why: {t['rationale']}")
-        lines += [f"- guardrail: {n}" for n in t["guardrail_notes"]]
-        if t["question"]:
-            res = "correct" if t["correct"] else "wrong" + (f", picked `{t['picked_misconception']}`" if t["picked_misconception"] else "")
-            lines.append(f"- student: {res} ({t['confidence']})")
-            if t.get("reason"):
-                lines.append(f'- reason: "{t["reason"]}" → read as {t["reading"]}')
-        lines.append("")
-    return "\n".join(lines)
 
 
 with gr.Blocks(title="Study Buddy: diagnostic quiz agent") as demo:
@@ -246,16 +270,42 @@ with gr.Blocks(title="Study Buddy: diagnostic quiz agent") as demo:
 
     with gr.Tab("Watch a simulated student"):
         gr.Markdown(
-            "Each simulated student has a **known** weakness planted in it. Run a session and check whether "
-            "the decision-maker finds it. This is how the agent is verified."
+            "Each simulated student has a **known** weakness planted in it, hidden from the agent. "
+            "Watch the agent decide, step by step, and check at the end whether it found what was planted. "
+            "This is how the agent is verified."
         )
         with gr.Row():
-            persona_in = gr.Dropdown([p.name for p in PERSONAS], value="two_misconceptions", label="Simulated student")
-            sim_policy_in = gr.Radio(list(SIM_POLICIES), value="Agent (LLM decides)", label="Decision-maker")
+            persona_in = gr.Dropdown([p.name for p in PERSONAS], value="swaps_sens_spec", label="Simulated student")
+            sim_policy_in = gr.Radio(list(SIM_POLICIES)[:2], value="Agent (LLM decides)", label="Who decides")
             sim_max_in = gr.Slider(6, 18, value=12, step=1, label="Maximum questions")
-        sim_btn = gr.Button("Run session", variant="primary")
-        sim_out = gr.Markdown()
-        sim_btn.click(simulate, [persona_in, sim_policy_in, sim_max_in], sim_out)
+        with gr.Row():
+            sim_concepts_in = gr.CheckboxGroup(
+                choices=[(c.name, c.id) for c in CONCEPT_LIST],
+                value=["logistic", "classification", "overfitting"], label="Topics in this session",
+            )
+        with gr.Row():
+            sim_reasons_in = gr.Checkbox(value=True, label="Student writes a reason after wrong answers")
+            sim_noise_in = gr.Slider(0, 0.5, value=0.3, step=0.1, label="Unreliable confidence",
+                                     info="Share of the student's confidence clicks that are random, like real students")
+            sim_pause_in = gr.Slider(0, 8, value=3, step=1, label="Pause to read each decision (seconds)")
+        with gr.Row():
+            sim_btn = gr.Button("Run session", variant="primary")
+            sim_stop = gr.Button("Stop")
+        sim_header = gr.Markdown()
+        sim_summary = gr.Markdown()
+        with gr.Row():
+            with gr.Column(scale=3):
+                sim_latest = gr.HTML()
+            with gr.Column(scale=2):
+                sim_beliefs = gr.HTML()
+        with gr.Accordion("Full trace so far", open=False):
+            sim_trace = gr.Markdown()
+        run_event = sim_btn.click(
+            simulate,
+            [persona_in, sim_policy_in, sim_reasons_in, sim_noise_in, sim_concepts_in, sim_max_in, sim_pause_in],
+            [sim_header, sim_latest, sim_beliefs, sim_trace, sim_summary],
+        )
+        sim_stop.click(None, None, None, cancels=[run_event])
 
     with gr.Tab("How it decides"):
         gr.Markdown(open("tutor/HOW_IT_DECIDES.md", encoding="utf-8").read())

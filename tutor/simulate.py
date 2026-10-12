@@ -172,7 +172,8 @@ def make_policy(name: str):
 def session_events(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
                    oracle: bool = False, concepts=None):
     """Run one session, yielding each step as it happens:
-        ("deciding", number) → ("decision", step) → ("answered", step, true_cause) → ... → ("done", result)
+        ("start", session) → ("deciding", number) → ("decision", step) → ("answered", step, true_cause)
+        → ... → ("done", result)
     The terminal (--show), the app and the evaluation all run sessions through this."""
     reasons = policy_name.endswith("+reasons")
     session = Session(make_policy(policy_name), concepts=concepts, max_questions=max_q, min_questions=min_q,
@@ -181,6 +182,7 @@ def session_events(policy_name: str, student: SimStudent, run: int, max_q: int, 
     rng = random.Random(f"{student.name}-{run}")
     reason_rng = random.Random(f"{student.name}-{run}-reasons")
     readings = []  # (true cause, reading) for scoring the reader
+    yield ("start", session)
     while True:
         if session.ctx.answered < session.ctx.max_questions:
             yield ("deciding", session.ctx.answered + 1)

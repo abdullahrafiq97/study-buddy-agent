@@ -212,3 +212,53 @@ def diagnosis_md(session: Session) -> str:
         out += ["", "### Review first"]
         out += [f"- **{CONCEPTS[c].name}**: {CONCEPTS[c].source}" for c in weak]
     return "\n".join(out)
+
+
+# ---------- simulated-student tab (streams step by step) ----------
+
+def sim_question_html(step: TraceStep) -> str:
+    q = step.question
+    opts = "".join(f"<div>{LETTERS[i]}. {esc(o.text)}</div>" for i, o in enumerate(q.options))
+    return (f"<div class='sb-card'><div class='sb-kicker'>Question {step.number} · {esc(CONCEPTS[q.concept].name)} · "
+            f"L{q.level}</div><p>{esc(q.stem)}</p><div class='sb-note'>{opts}</div></div>")
+
+
+def sim_answer_html(step: TraceStep, cause: str) -> str:
+    q = step.question
+    chosen = q.options[step.chosen_index]
+    if step.correct:
+        head = f"<span class='sb-pill ok'>correct</span> picked {LETTERS[step.chosen_index]} ({esc(step.confidence)})"
+    else:
+        tag = f" · option built on <code>{esc(chosen.misconception)}</code>" if chosen.misconception else " · untagged option"
+        head = (f"<span class='sb-pill bad'>wrong</span> picked {LETTERS[step.chosen_index]} ({esc(step.confidence)}){tag}"
+                f" · answer was {LETTERS[q.correct_index]}")
+    parts = ["<div class='sb-card'><div class='sb-kicker'>Simulated student's answer</div>", f"<div>{head}</div>",
+             f"<div class='sb-note'>hidden true cause (the agent can't see this): {esc(cause)}</div>"]
+    if step.reading is not None:
+        r = step.reading
+        label = r.kind + (f": {r.misconception_id}" if r.misconception_id else "")
+        parts.append(f"<p><b>Student's reason:</b> “{esc(r.text)}”<br><b>Model read it as:</b> "
+                     f"<span class='sb-pill warn'>{esc(label)}</span> {esc(r.explanation)}</p>")
+    parts.append("<div class='sb-note'>" + "<br>".join(esc(n) for n in step.notes) + "</div></div>")
+    return "".join(parts)
+
+
+def sim_trace_md(entries: List[str]) -> str:
+    return "\n\n".join(entries) if entries else "_Steps will appear here as they happen._"
+
+
+def sim_step_md(step: TraceStep, cause: Optional[str] = None) -> str:
+    d = step.decision
+    line = f"**#{step.number} {ACTION_LABELS.get(d.action, d.action)}**"
+    if d.concept:
+        line += f" → {d.concept} L{d.level}" + (f" (testing `{d.target}`)" if d.target else "")
+    out = [line, f"- why: {d.rationale}"]
+    out += [f"- guardrail: {n}" for n in d.guardrail_notes]
+    if cause is not None:
+        res = "correct" if step.correct else "wrong"
+        m = step.question.options[step.chosen_index].misconception
+        out.append(f"- student: {res}, {step.confidence}" + (f", picked `{m}`" if m else "") + f" (true cause: {cause})")
+        if step.reading is not None:
+            out.append(f'- reason: "{step.reading.text}" → read as {step.reading.kind}'
+                       + (f" ({step.reading.misconception_id})" if step.reading.misconception_id else ""))
+    return "\n".join(out)
