@@ -50,7 +50,8 @@ class SimStudent:
         """Returns (option index, confidence, true cause). The cause is hidden from
         the system; it is used to write a realistic reason and to score the reader."""
         idx, conf, cause = self._answer(q, rng)
-        if rng.random() < CONFIDENCE_NOISE:
+        # Only draw when noise is on, so noise-free runs keep the same random stream (reproducible results).
+        if CONFIDENCE_NOISE and rng.random() < CONFIDENCE_NOISE:
             conf = rng.choice(["sure", "unsure", "guess"])
         return idx, conf, cause
 
@@ -168,10 +169,11 @@ def make_policy(name: str):
     return {"rule": RuleBasedPolicy, "random": RandomPolicy, "heuristic": HeuristicPolicy}[name]()
 
 
-def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
-            oracle: bool = False, stream: bool = False, concepts=None) -> dict:
-    """stream=True prints each step to the terminal as it happens (tutor/live.py)."""
-    from . import live
+def session_events(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
+                   oracle: bool = False, concepts=None):
+    """Run one session, yielding each step as it happens:
+        ("deciding", number) → ("decision", step) → ("answered", step, true_cause) → ... → ("done", result)
+    The terminal (--show), the app and the evaluation all run sessions through this."""
     reasons = policy_name.endswith("+reasons")
     session = Session(make_policy(policy_name), concepts=concepts, max_questions=max_q, min_questions=min_q,
                       seed=1000 + run, bank=bank, reasons=reasons,
@@ -180,16 +182,14 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
     reason_rng = random.Random(f"{student.name}-{run}-reasons")
     readings = []  # (true cause, reading) for scoring the reader
     while True:
-        if stream and session.ctx.answered < session.ctx.max_questions:
-            live.deciding(session.ctx.answered + 1, policy_name)
+        if session.ctx.answered < session.ctx.max_questions:
+            yield ("deciding", session.ctx.answered + 1)
         step = session.next_question()
         if step is None:
-            if stream and session.trace and session.trace[-1].decision.action == "stop":
-                live.decision(session.trace[-1])  # show why the agent chose to stop
+            if session.trace and session.trace[-1].decision.action == "stop":
+                yield ("decision", session.trace[-1])  # why the agent chose to stop
             break
-        if stream:
-            live.decision(step)
-            live.question(step)
+        yield ("decision", step)
         idx, conf, cause = student.answer(step.question, rng)
         reason = None
         if session.wants_reason(idx):
@@ -199,9 +199,7 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
             else:
                 reason = student_reason(step.question, idx, cause, reason_rng)
         session.submit(idx, conf, reason)
-        if stream:
-            print(f"{live.DIM}   simulated student answered (hidden cause: {cause}){live.RESET}")
-            live.answered(step)
+        yield ("answered", step, cause)
         if step.reading is not None:
             readings.append((cause, step.reading))
 
@@ -232,9 +230,32 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
         "trace": [trace_to_dict(s) for s in session.trace],
     }
     result["exact"] = all(result[k] == 0 for k in ("mis_fp", "mis_fn", "weak_fp", "weak_fn"))
-    if stream:
-        result["session"] = session  # for the live summary; not saved to JSON
-    return result
+    result["session"] = session  # for live summaries; dropped before saving to JSON
+    yield ("done", result)
+
+
+def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
+            oracle: bool = False, stream: bool = False, concepts=None) -> dict:
+    """Run a whole session. stream=True prints each step to the terminal as it happens (tutor/live.py)."""
+    from . import live
+    for event in session_events(policy_name, student, run, max_q, min_q, bank, oracle, concepts):
+        kind = event[0]
+        if kind == "done":
+            result = event[1]
+            if not stream:
+                result.pop("session")
+            return result
+        if not stream:
+            continue
+        if kind == "deciding":
+            live.deciding(event[1], policy_name)
+        elif kind == "decision":
+            live.decision(event[1])
+            if event[1].question is not None:
+                live.question(event[1])
+        elif kind == "answered":
+            print(f"{live.DIM}   simulated student answered (hidden cause: {event[2]}){live.RESET}")
+            live.answered(event[1])
 
 
 def trace_to_dict(s) -> dict:
