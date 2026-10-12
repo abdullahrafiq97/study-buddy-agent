@@ -169,11 +169,11 @@ def make_policy(name: str):
 
 
 def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
-            oracle: bool = False, stream: bool = False) -> dict:
+            oracle: bool = False, stream: bool = False, concepts=None) -> dict:
     """stream=True prints each step to the terminal as it happens (tutor/live.py)."""
     from . import live
     reasons = policy_name.endswith("+reasons")
-    session = Session(make_policy(policy_name), max_questions=max_q, min_questions=min_q,
+    session = Session(make_policy(policy_name), concepts=concepts, max_questions=max_q, min_questions=min_q,
                       seed=1000 + run, bank=bank, reasons=reasons,
                       reader=OracleReader() if oracle and reasons else None)
     rng = random.Random(f"{student.name}-{run}")
@@ -334,7 +334,8 @@ def main():
     ap.add_argument("--max-q", type=int, default=10)
     ap.add_argument("--min-q", type=int, default=5)
     ap.add_argument("--students", nargs="+", default=[p.name for p in PERSONAS], choices=list(PERSONA_BY_NAME))
-    ap.add_argument("--show", help="Print the full trace of run 0 for this student")
+    ap.add_argument("--show", help="Stream the full trace of one session with this student, live")
+    ap.add_argument("--concepts", nargs="+", choices=list(CONCEPTS), help="Limit sessions to these concepts")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--confidence-noise", type=float, default=0.0,
                     help="Probability a simulated student's reported confidence is random (miscalibration)")
@@ -350,7 +351,8 @@ def main():
         for pol in args.policies:
             student = PERSONA_BY_NAME[args.show]
             print(f"\nSimulated student '{student.name}': {student.description}")
-            r = run_one(pol, student, 0, args.max_q, args.min_q, bank, args.oracle, stream=True)
+            r = run_one(pol, student, args.run_offset, args.max_q, args.min_q, bank, args.oracle,
+                        stream=True, concepts=args.concepts)
             from . import live
             live.finished(r["session"])
             print(f"\nPlanted: weak={sorted(student.truth(r['session'].beliefs.concepts)['weak']) or 'none'}, "

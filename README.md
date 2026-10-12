@@ -26,8 +26,9 @@ echo "OPENAI_API_KEY=sk-..." > .env
 # Terminal: take the quiz yourself and watch the agent's trace live, step by step
 .venv/bin/python -m tutor.cli                 # add --rules to let hand-written rules decide instead
 
-# Terminal: watch the agent diagnose a simulated student, live (about $0.04)
-.venv/bin/python -m tutor.simulate --policies agent+reasons --show two_misconceptions --confidence-noise 0.3 --max-q 12
+# Terminal: watch the agent diagnose a simulated student, live (about $0.05)
+.venv/bin/python -m tutor.simulate --policies agent+reasons --show swaps_sens_spec \
+    --concepts logistic classification overfitting --max-q 12 --min-q 6 --confidence-noise 0.3
 
 # App: take the quiz yourself (http://localhost:7860)
 .venv/bin/python app.py
