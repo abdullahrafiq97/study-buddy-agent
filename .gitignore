@@ -3,3 +3,6 @@
 __pycache__/
 .DS_Store
 .gradio/
+materials/
+examcraft_v1/
+.claude/

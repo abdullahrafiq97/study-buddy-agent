@@ -1,72 +1,83 @@
 # Study Buddy: a diagnostic quiz agent
 
-A short quiz on regression and classification (Predictive Analytics, Lectures 3-5 and 8) where an **agent decides what to ask next**. It aims to work out, in about 12 questions, which concepts you have mastered, where you have a knowledge gap, and which *specific misconceptions* you hold. It shows its reasoning for every choice.
+**The problem:** when I get a practice question wrong, I don't know *why*: a gap in what I know, a specific misconception, or a slip. Re-reading everything wastes the time I have before an exam.
+
+**What the agent does:** it runs a short quiz (up to 12 questions) on regression and classification, the material from my Predictive Analytics course. After every answer it **decides what to ask next** to find out what I actually misunderstand, then reports it. After a wrong answer, it also asks me, before showing the right answer, to write one line on *why* I picked it, and uses that to tell a misconception from a guess or a slip.
+
+## What the agent decides vs. what the code fetches
+
+| Part | Who | File |
+|---|---|---|
+| **Choose the next move**: screen a new concept, probe a suspected misconception, step down or up a level, recheck, check a prerequisite, or stop | **LLM agent** | `tutor/agent.py` |
+| **Read the student's one-line reason**: misconception / gap / slip / guess / unclear | **LLM** | `tutor/reasons.py` |
+| Update scores after each answer (mastery per concept, evidence per misconception) | code (facts) | `tutor/beliefs.py` |
+| Check the agent's move is legal (e.g. no stepping up after a wrong answer, no stopping while a concept is uncertain); a rejected move goes back to the agent once, then falls back to a rule | code (guardrails) | `tutor/policies.py` |
+| Pick an unasked question that matches the move | code (fetch) | `tutor/policies.py`, `tutor/bank.py` |
+| The loop: decide → ask → answer → update, capped at 12 questions | code | `tutor/session.py` |
+
+No framework: the loop and the OpenAI API calls are my own code.
 
 ## Run it
 
 ```bash
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python app.py                                   # the app, at http://localhost:7860
-.venv/bin/python -m tutor.simulate --policies agent heuristic rule random --runs 5   # verification
-.venv/bin/python -m tutor.simulate --policies agent --show two_misconceptions        # one full trace
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+echo "OPENAI_API_KEY=sk-..." > .env
+
+# Terminal: watch the agent diagnose a simulated student (about $0.03)
+.venv/bin/python -m tutor.simulate --policies agent+reasons --show two_misconceptions --confidence-noise 0.3 --max-q 12
+
+# App: take the quiz yourself (http://localhost:7860)
+.venv/bin/python app.py
 ```
 
-`.env` needs `OPENAI_API_KEY`. Optional: `AGENT_MODEL` (default `gpt-5.4-mini`) and `AGENT_REASONING` (default `low`).
+Models (set in `.env` to override): agent `gpt-5.4-mini` (`AGENT_MODEL`), reason reader `gpt-5.4-nano` (`READER_MODEL`).
 
-## What is agentic here (and what is not)
+## How I tested it
 
-| Part | Deterministic or agent? |
+Simulated students with **planted** weaknesses (e.g. "swaps sensitivity and specificity", "never learned ridge/LASSO", "shaky on OLS basics"). Each policy runs full sessions; "exactly right" means the final diagnosis found everything planted and flagged nothing false. `tutor/simulate.py` runs it; results and every trace are in `results/`.
+
+**1. Does the model decide better than rules?** I wrote the same strategy as plain if-statements and compared (8 students × 10 runs, 12 questions):
+
+| Who decides | Exactly right |
 |---|---|
-| Question bank: 54 questions, 6 concepts × 3 misconceptions × 3 levels, with every wrong option tagged by the misconception it reveals | deterministic data (`tutor/data/question_bank.json`) |
-| Belief update after each answer (Beta mastery, misconception hits/avoids) | deterministic math (`tutor/beliefs.py`) |
-| **Choosing the next move** (screen / probe misconception / step down / step up / check prerequisite / stop) and explaining why | **LLM agent** (`tutor/agent.py`) |
-| Guardrails that reject invalid moves, e.g. stepping up after a wrong answer, or stopping while a concept is still uncertain | deterministic (`tutor/policies.py`) |
-| Final diagnosis | deterministic, from the beliefs |
+| LLM agent | 62% |
+| Hand-written rules, same moves | 64% |
+| My original ExamCraft rule (weakest topic, fixed thresholds) | 45% |
+| Random | 28% |
+
+Agent vs rules: -1 point, 95% CI [-14, +13], a tie. **Why:** every signal it read (which wrong option, stated confidence) was already a clean number, and a rule handles clean numbers fine.
+
+**2. So I gave it a signal a rule can't read: the student's own words.** On fresh test runs, with 30% of the simulated students' confidence ratings unreliable:
+
+| Same 80 sessions | Exactly right |
+|---|---|
+| Rules + the model reading reasons | **60%** |
+| Rules, no reasons | 58% |
+| Agent deciding + reading reasons (gpt-5-mini) | 51% |
+
+- The reason reader recovered the true cause 94-96% of the time. Over 160 held-out sessions, reasons raised the rules from 53% to 59% (+6.2, 95% CI [0, +13]).
+- With a *perfect* reader: +2.5 points when confidence is honest, +9.6 when half of it is random. **Reasons only matter when stated confidence is unreliable.**
+
+## What doesn't work yet, and what I'd fix
+
+- **The agent doesn't beat rules at choosing questions**, even with reasons (51% vs 60%, inside the noise, on a cheaper model). Its value is reading what the student meant.
+- **The reason reader is a separate tool that concludes**, and writes its label into the scores before the agent sees it. The interpretation should be the agent's call: give it the raw words and let it decide.
+- **The final diagnosis comes from fixed thresholds**, not the agent.
+- **In traces, the agent sometimes trusts the confidence button over the student's words.** For example, the student clicked "Sure" but wrote "I just guessed", and the agent probed anyway (6 of 880 steps).
+- **Simulated students are not real students.** Real results would need real users.
 
 ## Files
 
-- `tutor/concepts.py`: concept map, prerequisites, misconceptions (with lecture sources)
-- `tutor/bank.py`: loads and validates the question bank
-- `tutor/beliefs.py`: belief state and diagnosis
-- `tutor/policies.py`: actions, guardrails, baselines (heuristic, ExamCraft v1 rule, random)
+- `tutor/concepts.py`: 6 concepts, their prerequisites, and 3 misconceptions each
+- `tutor/data/question_bank.json`: 54 questions (6 concepts × 3 misconceptions × 3 levels); every wrong option is tagged with the misconception it reveals
+- `tutor/bank.py`: loads and validates the bank
+- `tutor/beliefs.py`: score updates and the final diagnosis
+- `tutor/policies.py`: the moves, guardrails, and the baseline policies
 - `tutor/agent.py`: the LLM decision-maker
-- `tutor/session.py`: the session loop and reasoning trace
-- `tutor/simulate.py`: simulated students with planted weaknesses, plus the evaluation
-- `app.py`: Gradio app
-- `examcraft_v1/`: the original ExamCraft project (kept for reference)
+- `tutor/reasons.py`: the LLM that reads the student's reason
+- `tutor/session.py`: the loop
+- `tutor/simulate.py`: simulated students and the evaluation
+- `tutor/usage.py`: token and cost tracking
+- `tutor/render.py`, `app.py`: the Gradio app (optional; the terminal command above is enough)
 
-## Verification results (12-question budget, 8 simulated students × 10 runs)
-
-"Exactly right" = the diagnosis found every planted weakness and misconception, with no false flags.
-
-| Who decides | Exactly right | Misconceptions found | Weak concepts found | False weak flags / session |
-|---|---|---|---|---|
-| LLM agent (prompt v2) | 62% | 68% | 57% | 0.06 |
-| Hand-written heuristic (same actions) | 64% | 80% | 63% | 0.11 |
-| ExamCraft v1 rule | 45% | 48% | 73% | 0.30 |
-| Random | 28% | 20% | 27% | 0.17 |
-
-- Agent prompt v1 (before the fixes): 51% exactly right, 0.21 false weak flags per session (5 runs; `results/summary_v1_prompt.md`).
-- Agent vs heuristic, paired by student and seed: -1 point, 95% bootstrap CI [-14, +13]. **No measurable difference.**
-- Both beat the original ExamCraft rule by about 18 points.
-
-Full traces are in `results/runs_*.jsonl`.
-
-## Free-text reasons (after a wrong answer, the student writes why)
-
-The model reads the reason (misconception / gap / slip / guess / unclear). Tested on held-out seeds, with 30% of simulated students' confidence ratings random (real students are miscalibrated).
-
-| Setup (same students and seeds, runs 100-109) | Exactly right | False misconception flags / session | False weak flags / session |
-|---|---|---|---|
-| Rules decide, model reads reasons | **60%** | 0.00 | 0.14 |
-| Rules decide, no reasons | 58% | 0.03 | 0.15 |
-| Model decides **and** reads reasons (agent: gpt-5-mini) | 51% | 0.00 | 0.09 |
-
-- Over all 160 held-out sessions (runs 100-119), reasons improved the rules from 53% to 59% (+6.2 points, 95% CI [0, +13]).
-- The reason reader (gpt-5.4-nano) recovered the true cause 94-96% of the time.
-- Agent vs rules, both reading reasons: -8.7 points, 95% CI [-21, +4]. The model deciding does not help. Note: the agent here ran on gpt-5-mini (cheaper than the gpt-5.4-mini used earlier), so model strength is a possible confound.
-- Perfect-reader ceiling (no LLM, `--oracle`): +2.5 points with honest confidence, +5.4 at 30% noise, +9.6 at 50%. **Reasons only help when stated confidence is unreliable.**
-
-**Conclusion: the model earns its place reading what the student meant, not choosing the next question.**
-
-Total API cost of all reason experiments: about $3.30.
+API cost of the free-text experiments: about $3.30.
