@@ -252,7 +252,10 @@ def sim_step_md(step: TraceStep, cause: Optional[str] = None) -> str:
     line = f"**#{step.number} {ACTION_LABELS.get(d.action, d.action)}**"
     if d.concept:
         line += f" → {d.concept} L{d.level}" + (f" (testing `{d.target}`)" if d.target else "")
-    out = [line, f"- why: {d.rationale}"]
+    out = [line]
+    if d.hypothesis:
+        out.append(f"- current read: {d.hypothesis}")
+    out.append(f"- why: {d.rationale}")
     out += [f"- guardrail: {n}" for n in d.guardrail_notes]
     if cause is not None:
         res = "correct" if step.correct else "wrong"
