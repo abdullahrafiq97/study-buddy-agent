@@ -52,16 +52,27 @@ Simulated students with **planted** weaknesses (e.g. "swaps sensitivity and spec
 
 Agent vs rules: -1 point, 95% CI [-14, +13], a tie. **Why:** every signal it read (which wrong option, stated confidence) was already a clean number, and a rule handles clean numbers fine.
 
-**2. So I gave it a signal a rule can't read: the student's own words.** On fresh test runs, with 30% of the simulated students' confidence ratings unreliable:
+**2. So I gave it a signal a rule can't read: the student's own words.** Tested on fresh runs it was never tuned on, with 30% of the simulated students' confidence clicks random (real students click "sure" when guessing).
 
-| Same 80 sessions | Exactly right |
+*Does reading reasons help?* (160 sessions: 8 students × 20 runs)
+
+| Rules decide the next question | Exactly right |
 |---|---|
-| Rules + the model reading reasons | **60%** |
-| Rules, no reasons | 58% |
-| Agent deciding + reading reasons (gpt-5-mini) | 51% |
+| Without reasons | 53% |
+| **With the model reading reasons** | **59%** |
 
-- The reason reader recovered the true cause 94-96% of the time. Over 160 held-out sessions, reasons raised the rules from 53% to 59% (+6.2, 95% CI [0, +13]).
-- With a *perfect* reader: +2.5 points when confidence is honest, +9.6 when half of it is random. **Reasons only matter when stated confidence is unreliable.**
++6 points (95% CI [0, +13]). The reason reader (gpt-5.4-nano) recovered the true cause 96% of the time.
+
+*Should the model also choose the next question?* (80 of those sessions, where I also ran the agent)
+
+| Both read reasons; who chooses the next question | Exactly right |
+|---|---|
+| Rules | **60%** |
+| LLM agent (gpt-5-mini) | 51% |
+
+-9 points (95% CI [-21, +4]): within noise, and not better.
+
+With a *perfect* reader (no LLM), reasons add +2.5 points when confidence is honest and +9.6 when half of it is random. **Reasons only matter when stated confidence is unreliable.**
 
 ## What doesn't work yet, and what I'd fix
 
