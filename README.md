@@ -23,7 +23,10 @@ No framework: the loop and the OpenAI API calls are my own code.
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 echo "OPENAI_API_KEY=sk-..." > .env
 
-# Terminal: watch the agent diagnose a simulated student (about $0.03)
+# Terminal: take the quiz yourself and watch the agent's trace live, step by step
+.venv/bin/python -m tutor.cli                 # add --rules to let hand-written rules decide instead
+
+# Terminal: watch the agent diagnose a simulated student, live (about $0.04)
 .venv/bin/python -m tutor.simulate --policies agent+reasons --show two_misconceptions --confidence-noise 0.3 --max-q 12
 
 # App: take the quiz yourself (http://localhost:7860)
@@ -76,6 +79,7 @@ Agent vs rules: -1 point, 95% CI [-14, +13], a tie. **Why:** every signal it rea
 - `tutor/agent.py`: the LLM decision-maker
 - `tutor/reasons.py`: the LLM that reads the student's reason
 - `tutor/session.py`: the loop
+- `tutor/cli.py`: take the quiz in the terminal; `tutor/live.py` prints each step as it happens
 - `tutor/simulate.py`: simulated students and the evaluation
 - `tutor/usage.py`: token and cost tracking
 - `tutor/render.py`, `app.py`: the Gradio app (optional; the terminal command above is enough)

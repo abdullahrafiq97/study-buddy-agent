@@ -169,7 +169,9 @@ def make_policy(name: str):
 
 
 def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: int, bank,
-            oracle: bool = False) -> dict:
+            oracle: bool = False, stream: bool = False) -> dict:
+    """stream=True prints each step to the terminal as it happens (tutor/live.py)."""
+    from . import live
     reasons = policy_name.endswith("+reasons")
     session = Session(make_policy(policy_name), max_questions=max_q, min_questions=min_q,
                       seed=1000 + run, bank=bank, reasons=reasons,
@@ -178,9 +180,16 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
     reason_rng = random.Random(f"{student.name}-{run}-reasons")
     readings = []  # (true cause, reading) for scoring the reader
     while True:
+        if stream and session.ctx.answered < session.ctx.max_questions:
+            live.deciding(session.ctx.answered + 1, policy_name)
         step = session.next_question()
         if step is None:
+            if stream and session.trace and session.trace[-1].decision.action == "stop":
+                live.decision(session.trace[-1])  # show why the agent chose to stop
             break
+        if stream:
+            live.decision(step)
+            live.question(step)
         idx, conf, cause = student.answer(step.question, rng)
         reason = None
         if session.wants_reason(idx):
@@ -190,6 +199,9 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
             else:
                 reason = student_reason(step.question, idx, cause, reason_rng)
         session.submit(idx, conf, reason)
+        if stream:
+            print(f"{live.DIM}   simulated student answered (hidden cause: {cause}){live.RESET}")
+            live.answered(step)
         if step.reading is not None:
             readings.append((cause, step.reading))
 
@@ -220,6 +232,8 @@ def run_one(policy_name: str, student: SimStudent, run: int, max_q: int, min_q: 
         "trace": [trace_to_dict(s) for s in session.trace],
     }
     result["exact"] = all(result[k] == 0 for k in ("mis_fp", "mis_fn", "weak_fp", "weak_fn"))
+    if stream:
+        result["session"] = session  # for the live summary; not saved to JSON
     return result
 
 
@@ -334,7 +348,13 @@ def main():
     bank = load_bank()
     if args.show:
         for pol in args.policies:
-            print_trace(run_one(pol, PERSONA_BY_NAME[args.show], 0, args.max_q, args.min_q, bank, args.oracle))
+            student = PERSONA_BY_NAME[args.show]
+            print(f"\nSimulated student '{student.name}': {student.description}")
+            r = run_one(pol, student, 0, args.max_q, args.min_q, bank, args.oracle, stream=True)
+            from . import live
+            live.finished(r["session"])
+            print(f"\nPlanted: weak={sorted(student.truth(r['session'].beliefs.concepts)['weak']) or 'none'}, "
+                  f"misconceptions={list(student.misconceptions) or 'none'} → exactly right: {r['exact']}")
         from . import usage
         print("\nLLM usage and cost:\n" + usage.report())
         return
