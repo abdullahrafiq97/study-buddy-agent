@@ -41,6 +41,17 @@ Models (set in `.env` to override): agent `gpt-5.4-mini` (`AGENT_MODEL`), reason
 
 Simulated students with **planted** weaknesses (e.g. "swaps sensitivity and specificity", "never learned ridge/LASSO", "shaky on OLS basics"). Each policy runs full sessions; "exactly right" means the final diagnosis found everything planted and flagged nothing false. `tutor/simulate.py` runs it; results and every trace are in `results/`.
 
+**All results at a glance.** Two kinds of simulated students: *honest* ones (their confidence click always tells the truth) and *unreliable* ones (30% of confidence clicks random, like real students). Unreliable students are harder for everyone, so compare numbers within a column, not across.
+
+| Who chooses the next question | Honest students | Unreliable-confidence students |
+|---|---|---|
+| LLM agent | 62% | not run |
+| Rules (same moves as the agent) | 64% | 53% |
+| Rules + model reads the student's reasons | not run | **59%** (60% on the 80-session subset) |
+| LLM agent + model reads reasons | not run | 51% (80-session subset) |
+| Original ExamCraft rule | 45% | not run |
+| Random | 28% | not run |
+
 **1. Does the model decide better than rules?** I wrote the same strategy as plain if-statements and compared (8 students × 10 runs, 12 questions):
 
 | Who decides | Exactly right |
